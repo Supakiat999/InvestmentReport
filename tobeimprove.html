@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Improvement Report — Dime + Webull</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0a0d12;
+    --surface:  #111620;
+    --card:     #161d2b;
+    --border:   #1e2a3a;
+    --gold:     #d4a843;
+    --gold-dim: #7a5e22;
+    --green:    #3ecf72;
+    --green-dim:#1a5535;
+    --red:      #f05d5d;
+    --red-dim:  #5c1d1d;
+    --blue:     #4a90d9;
+    --purple:   #9b72cf;
+    --teal:     #3bbfb2;
+    --text:     #dce8f5;
+    --muted:    #6a7f99;
+    --mono:     'IBM Plex Mono', monospace;
+    --sans:     'IBM Plex Sans', sans-serif;
+    --display:  'Playfair Display', serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999; opacity: 0.35;
+  }
+
+  .container { max-width: 1180px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .header {
+    display: grid; grid-template-columns: 1fr auto;
+    align-items: start; gap: 24px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 32px; margin-bottom: 34px;
+  }
+  .header-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    color: var(--gold); text-transform: uppercase; margin-bottom: 8px;
+  }
+  .header-title {
+    font-family: var(--display); font-size: 44px; font-weight: 900;
+    line-height: 1.05; color: #fff;
+    background: linear-gradient(135deg, #fff 40%, var(--gold));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .header-sub {
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+    margin-top: 10px;
+  }
+  .total-value { text-align: right; }
+  .total-value .label {
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .total-value .amount {
+    font-family: var(--mono); font-size: 36px; font-weight: 600;
+    color: var(--gold); letter-spacing: -1px; line-height: 1.1; margin-top: 4px;
+  }
+  .total-value .sub {
+    font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 4px;
+  }
+  .badge {
+    display: inline-block; border-radius: 4px; padding: 3px 8px;
+    font-family: var(--mono); font-size: 12px; margin-top: 8px;
+    background: var(--red-dim); color: var(--red);
+  }
+
+  .section { margin-bottom: 42px; }
+  .section-title {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
+    color: var(--gold); text-transform: uppercase;
+    margin-bottom: 16px; display: flex; align-items: center; gap: 10px;
+  }
+  .section-title::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 17px 18px;
+  }
+  .card .label {
+    font-family: var(--mono); font-size: 10px; color: var(--muted);
+    letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 7px;
+  }
+  .card .value {
+    font-family: var(--mono); font-size: 21px; font-weight: 600;
+    color: var(--text); line-height: 1.25;
+  }
+  .card.primary .value { color: var(--gold); font-size: 26px; }
+  .card .note { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .green { color: var(--green); }
+  .red { color: var(--red); }
+  .gold { color: var(--gold); }
+  .muted { color: var(--muted); }
+
+  .diagnosis {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .flag {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 18px;
+  }
+  .flag.good { border-color: rgba(62,207,114,0.35); }
+  .flag.warn { border-color: rgba(212,168,67,0.45); }
+  .flag.bad { border-color: rgba(240,93,93,0.45); }
+  .flag h3 {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em;
+    text-transform: uppercase; margin-bottom: 9px;
+  }
+  .flag.good h3 { color: var(--green); }
+  .flag.warn h3 { color: var(--gold); }
+  .flag.bad h3 { color: var(--red); }
+  .flag p { color: var(--muted); font-size: 13px; }
+
+  .callout {
+    border: 1px solid rgba(240,93,93,0.4);
+    background: rgba(240,93,93,0.08);
+    border-radius: 8px; padding: 16px 18px;
+    margin-top: 14px;
+  }
+  .callout strong { color: var(--red); }
+
+  .bars { display: grid; gap: 13px; }
+  .bar-row {
+    display: grid; grid-template-columns: 220px 1fr 76px;
+    gap: 12px; align-items: center;
+    font-family: var(--mono); font-size: 12px;
+  }
+  .bar-label { color: var(--text); }
+  .bar-bg { height: 10px; border-radius: 5px; background: var(--border); overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 5px; }
+  .bar-value { color: var(--muted); text-align: right; }
+
+  .split {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  }
+  .bullet-list { display: grid; gap: 10px; }
+  .bullet {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 13px 15px;
+  }
+  .bullet b { color: var(--text); }
+  .bullet span { display: block; color: var(--muted); font-size: 13px; margin-top: 3px; }
+
+  .table-wrap {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; overflow-x: auto;
+  }
+  table { width: 100%; min-width: 980px; border-collapse: collapse; }
+  th {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted);
+    padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border);
+    background: var(--card); position: sticky; top: 0;
+  }
+  td {
+    padding: 13px 14px; border-bottom: 1px solid rgba(30,42,58,0.7);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  .ticker {
+    font-family: var(--mono); font-weight: 600; color: var(--text);
+    white-space: nowrap;
+  }
+  .tag {
+    display: inline-block; border-radius: 3px; padding: 2px 6px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+  .tag-core { background: #1a2e4a; color: var(--blue); }
+  .tag-sat { background: #1a3028; color: var(--green); }
+  .tag-spec { background: #3a1c1c; color: var(--red); }
+  .tag-income { background: #2a2218; color: var(--gold); }
+  .tag-cash { background: #172b2d; color: var(--teal); }
+  .tag-simplify { background: #2a1e3a; color: var(--purple); }
+  .action { color: var(--muted); max-width: 500px; }
+  .account { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+  .checklist {
+    counter-reset: step;
+    display: grid; gap: 10px;
+  }
+  .check {
+    counter-increment: step;
+    display: grid; grid-template-columns: 38px 1fr; gap: 12px;
+    align-items: start; background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px;
+  }
+  .check::before {
+    content: counter(step);
+    width: 28px; height: 28px; display: grid; place-items: center;
+    border-radius: 5px; background: rgba(212,168,67,0.12);
+    color: var(--gold); font-family: var(--mono); font-weight: 600;
+  }
+  .check b { color: var(--text); }
+  .check span { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  .source-links {
+    display: flex; flex-wrap: wrap; gap: 10px;
+  }
+  .source-links a {
+    color: var(--gold); border: 1px solid var(--border);
+    background: var(--surface); border-radius: 6px;
+    padding: 8px 10px; font-family: var(--mono); font-size: 11px;
+    text-decoration: none;
+  }
+  .source-links a:hover { border-color: var(--gold-dim); }
+
+  .footer-note {
+    margin-top: 40px; padding: 16px 20px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    display: flex; gap: 20px; flex-wrap: wrap;
+  }
+  .footer-note b { color: var(--text); }
+
+  @media (max-width: 820px) {
+    .container { padding: 28px 16px 60px; }
+    .header { grid-template-columns: 1fr; }
+    .total-value { text-align: left; }
+    .header-title { font-size: 31px; }
+    .total-value .amount { font-size: 27px; }
+    .diagnosis, .split { grid-template-columns: 1fr; }
+    .bar-row { grid-template-columns: 1fr; gap: 6px; }
+    .bar-value { text-align: left; }
+    table { min-width: 880px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="header">
+    <div>
+      <div class="header-label">Dime + Webull — Portfolio Improvement Report</div>
+      <h1 class="header-title">Brutal Portfolio<br>Review</h1>
+      <div class="header-sub">Snapshot based on 11 May 2026 values · Goal assumed: long-term growth, 5+ years</div>
+    </div>
+    <div class="total-value">
+      <div class="label">Combined Portfolio</div>
+      <div class="amount">฿219,320.65</div>
+      <div class="sub">Dime ฿118,482.95 + Webull ฿100,837.70</div>
+      <div class="badge">Educational review · not financial advice</div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="section-title">Brutal Diagnosis</div>
+    <div class="diagnosis">
+      <article class="flag good">
+        <h3>Green Flag</h3>
+        <p>You clearly want long-term growth, and the portfolio has legitimate building blocks: VT, VTI, S&P 500 funds, QQQM/VUG-style growth exposure, and some quality individual companies.</p>
+      </article>
+      <article class="flag warn">
+        <h3>Yellow Flag</h3>
+        <p>The portfolio is trying to be everything at once: core indexer, AI growth book, income book, commodity hedge, political ETF experiment, high-risk turnaround basket, and cash reserve.</p>
+      </article>
+      <article class="flag bad">
+        <h3>Red Flag</h3>
+        <p>The mess is not one bad stock. The problem is structure: duplicated exposure, tiny positions that cannot matter, and themed bets that may feel diversified while moving together in a selloff.</p>
+      </article>
+    </div>
+    <div class="callout">
+      <strong>Honest take:</strong> this is not a disaster, but it is not yet a clean long-term compounding machine. It looks like a smart investor kept finding good ideas, but never forced every idea to compete for limited portfolio space.
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title">Combined Snapshot</div>
+    <div class="grid">
+      <div class="card primary">
+        <div class="label">Combined Value</div>
+        <div class="value">฿219,320.65</div>
+        <div class="note">Source snapshot values only; no live recalculation.</div>
+      </div>
+      <div class="card">
+        <div class="label">Dime Total</div>
+        <div class="value">฿118,482.95</div>
+        <div class="note">Heavily led by the Growth sleeve.</div>
+      </div>
+      <div class="card">
+        <div class="label">Webull NAV</div>
+        <div class="value">฿100,837.70</div>
+        <div class="note">About 65.6% cash inside Webull.</div>
+      </div>
+      <div class="card">
+        <div class="label">Webull Cash</div>
+        <div class="value">฿66,175.97</div>
+        <div class="note">About 30.2% of the combined portfolio.</div>
+      </div>
+      <div class="card">
+        <div class="label">Invested Ex-Webull Cash</div>
+        <div class="value">≈฿153,144.68</div>
+        <div class="note">This is the risk-bearing portfolio before any other cash outside these apps.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title">What The Current Shape Says</div>
+    <div class="bars">
+      <div class="bar-row">
+        <div class="bar-label">Dime Growth Sleeve</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:72.5%;background:linear-gradient(90deg,#3ecf72,#2ab562);"></div></div>
+        <div class="bar-value">72.5% of Dime</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Dime Passive Income</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:17.4%;background:linear-gradient(90deg,#4a90d9,#3578c0);"></div></div>
+        <div class="bar-value">17.4% of Dime</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Dime Commodities</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:5.5%;background:linear-gradient(90deg,#d4a843,#b88c2a);"></div></div>
+        <div class="bar-value">5.5% of Dime</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Webull Cash</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:65.6%;background:linear-gradient(90deg,#3bbfb2,#288f87);"></div></div>
+        <div class="bar-value">65.6% of Webull</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">Webull Cash vs Combined</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:30.2%;background:linear-gradient(90deg,#9b72cf,#7d55b8);"></div></div>
+        <div class="bar-value">30.2% combined</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title">Main Problems</div>
+    <div class="split">
+      <div class="bullet-list">
+        <div class="bullet"><b>1. Too many funds pretending to be different.</b><span>VT, VTI, QQQM, VUG, S&P 500 funds, JGLO, MOAT, SCHD, AVUV, VYMI, EWY, and FMTM all may have valid roles, but together they create a cloudy core.</span></div>
+        <div class="bullet"><b>2. The AI/tech bet is bigger than it looks.</b><span>MSFT, GOOGL, NVDA, META, TSM, SNDK, DRAM, LRCX, QQQM, VUG, VTI, VT, and S&P funds overlap in technology exposure.</span></div>
+        <div class="bullet"><b>3. Income products can slow long-term compounding.</b><span>JEPI, XYLD, QQQI, TRIN, REITs, and infrastructure funds may feel productive, but high income can mean capped upside, credit risk, or rate sensitivity.</span></div>
+      </div>
+      <div class="bullet-list">
+        <div class="bullet"><b>4. Speculative ideas need a hard budget.</b><span>IONQ, THAI, uranium, clean energy, memory ETFs, and congressional trading ETFs should be satellites. If they become core by accident, the portfolio gets fragile.</span></div>
+        <div class="bullet"><b>5. Webull cash is both strength and drag.</b><span>Cash gives optionality and safety, but if the goal is 5+ year growth, a 30.2% combined cash drag needs a deliberate deployment plan.</span></div>
+        <div class="bullet"><b>6. Data hygiene is already warning you.</b><span>The Dime page says 42 assets, but visible rows add to 41; Passive Income says 9 holdings while showing 8. Fixing tracking discipline matters before optimizing.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title">Target Allocation For Long-Term Growth</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Bucket</th>
+            <th>Target Range</th>
+            <th>What Belongs Here</th>
+            <th>Blunt Rule</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag tag-core">Core</span></td>
+            <td class="ticker">60-75%</td>
+            <td>VT, VTI, broad S&P 500 funds, maybe one primary growth ETF.</td>
+            <td class="action">This should do most of the work. If a holding cannot beat the simplicity of the core, it needs a very good reason to exist.</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-sat">Quality Growth</span></td>
+            <td class="ticker">10-20%</td>
+            <td>MSFT, GOOGL, NVDA, GEV, AAPL, META, TSM, BRK.B if you want selected companies.</td>
+            <td class="action">Keep the best ideas, but cap single-name risk and do not double-count them through ETFs.</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-income">Income</span></td>
+            <td class="ticker">5-15%</td>
+            <td>JEPI, XYLD, QQQI, TRIN, SCHD, VYMI, REITs, infrastructure funds.</td>
+            <td class="action">Income is useful, but do not let yield seduce you into sacrificing long-term total return.</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-sat">Commodities</span></td>
+            <td class="ticker">3-8%</td>
+            <td>MTS-GOLD, GLDM, SLV, limited commodity themes.</td>
+            <td class="action">Use as hedge/diversifier, not as a thesis you keep averaging into because price moved.</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-spec">Speculative</span></td>
+            <td class="ticker">0-3%</td>
+            <td>IONQ, THAI, GOP, NANC, URAN, ICLN, DRAM, SNDK, narrow themes.</td>
+            <td class="action">Tiny and intentional. These should not be allowed to quietly become the personality of the portfolio.</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-cash">Cash</span></td>
+            <td class="ticker">Separate</td>
+            <td>Emergency fund and planned opportunity cash.</td>
+            <td class="action">Name the cash. If it is emergency cash, stop judging it as missed return. If it is investment cash, deploy it by rules.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title">Position Cleanup Table</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ticker / Asset</th>
+            <th>Account</th>
+            <th>Role</th>
+            <th>Brutal Comment</th>
+            <th>Suggested Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="ticker">USD / THB Cash</td><td class="account">Webull</td><td><span class="tag tag-cash">Cash</span></td><td class="action">A huge cushion. Good if intentional, lazy if accidental.</td><td class="action">Separate emergency cash from investable cash; deploy investable cash gradually into target buckets.</td></tr>
+          <tr><td class="ticker">VT</td><td class="account">Dime + Webull</td><td><span class="tag tag-core">Core</span></td><td class="action">One of the cleanest holdings here. Global, simple, low-drama.</td><td class="action">Make this a candidate anchor instead of collecting too many overlapping funds.</td></tr>
+          <tr><td class="ticker">VTI</td><td class="account">Dime</td><td><span class="tag tag-core">Core</span></td><td class="action">Excellent U.S. core, but overlaps with S&P 500 funds and many tech names.</td><td class="action">Keep if U.S. total market is the chosen core; otherwise simplify into VT/S&P route.</td></tr>
+          <tr><td class="ticker">SCBRM S&amp;P500</td><td class="account">Dime</td><td><span class="tag tag-core">Core</span></td><td class="action">Useful Thai-access S&P 500 exposure, but redundant beside KKP US500, VTI, QQQM, VUG.</td><td class="action">Pick one S&P 500 vehicle, not several unless fees/tax wrappers justify it.</td></tr>
+          <tr><td class="ticker">KKP US500</td><td class="account">Dime</td><td><span class="tag tag-simplify">Simplify</span></td><td class="action">Another S&P 500 sleeve. Fine product, weak portfolio role if duplicated.</td><td class="action">Merge future contributions into the preferred S&P 500 or global core vehicle.</td></tr>
+          <tr><td class="ticker">QQQM</td><td class="account">Dime</td><td><span class="tag tag-sat">Satellite</span></td><td class="action">Strong growth tilt, but it piles onto MSFT, GOOGL, NVDA, AAPL, META exposure.</td><td class="action">Cap it as a deliberate Nasdaq tilt, not another core.</td></tr>
+          <tr><td class="ticker">VUG</td><td class="account">Dime</td><td><span class="tag tag-simplify">Simplify</span></td><td class="action">Good fund, but overlaps heavily with QQQM and your individual mega-cap tech names.</td><td class="action">Choose QQQM or VUG as the growth tilt; do not keep adding to both without a reason.</td></tr>
+          <tr><td class="ticker">JGLO</td><td class="account">Dime</td><td><span class="tag tag-simplify">Simplify</span></td><td class="action">Active global equity sounds diversified, but it may blur the role of VT.</td><td class="action">Keep only if you specifically want active global selection beside VT.</td></tr>
+          <tr><td class="ticker">MOAT</td><td class="account">Dime</td><td><span class="tag tag-sat">Satellite</span></td><td class="action">A reasonable quality/value tilt, but not necessary if the core is already crowded.</td><td class="action">Keep small or fold into core if simplification is the priority.</td></tr>
+          <tr><td class="ticker">FMTM</td><td class="account">Webull</td><td><span class="tag tag-simplify">Simplify</span></td><td class="action">Tiny strategy ETF position. Too small to change your outcome.</td><td class="action">Either define its role or stop adding; tiny funds create clutter.</td></tr>
+          <tr><td class="ticker">MSFT</td><td class="account">Dime + Webull</td><td><span class="tag tag-sat">Quality Growth</span></td><td class="action">High-quality company, but you already own it through nearly every U.S. growth/core fund.</td><td class="action">Keep if it is a top conviction name; cap combined direct exposure.</td></tr>
+          <tr><td class="ticker">GOOGL</td><td class="account">Dime + Webull</td><td><span class="tag tag-sat">Quality Growth</span></td><td class="action">Quality growth holding with real AI/cloud/ads exposure. Also already embedded in ETFs.</td><td class="action">Fine as a conviction name; avoid letting it grow unnoticed across accounts.</td></tr>
+          <tr><td class="ticker">NVDA</td><td class="account">Dime</td><td><span class="tag tag-sat">Quality Growth</span></td><td class="action">Great company, violent valuation risk. It can be right long-term and still punish bad position sizing.</td><td class="action">Hold as capped satellite, not a position you emotionally chase.</td></tr>
+          <tr><td class="ticker">META</td><td class="account">Dime</td><td><span class="tag tag-sat">Quality Growth</span></td><td class="action">Strong ad/AI platform, but another mega-cap tech overlap.</td><td class="action">Keep only if it earns a slot against MSFT/GOOGL/NVDA/AAPL.</td></tr>
+          <tr><td class="ticker">AAPL</td><td class="account">Dime</td><td><span class="tag tag-sat">Quality Growth</span></td><td class="action">Quality business, but growth may be slower than your other tech names.</td><td class="action">Accept as mature quality or consolidate if you want fewer single stocks.</td></tr>
+          <tr><td class="ticker">BRK.B</td><td class="account">Dime</td><td><span class="tag tag-sat">Quality Growth</span></td><td class="action">Cleaner diversifier than many thematic ETFs here.</td><td class="action">Reasonable to keep as a quality/value ballast inside equities.</td></tr>
+          <tr><td class="ticker">UBER</td><td class="account">Dime</td><td><span class="tag tag-sat">Quality Growth</span></td><td class="action">Interesting platform, but more company-specific execution risk than the mega caps.</td><td class="action">Keep small unless you have a clear thesis and sizing rule.</td></tr>
+          <tr><td class="ticker">PLTR</td><td class="account">Webull</td><td><span class="tag tag-spec">Speculative</span></td><td class="action">Powerful AI narrative, but valuation/story risk is real.</td><td class="action">Treat as speculative; do not average down automatically.</td></tr>
+          <tr><td class="ticker">TSM</td><td class="account">Dime</td><td><span class="tag tag-sat">Quality Growth</span></td><td class="action">Critical semiconductor infrastructure, but geopolitical risk comes with it.</td><td class="action">Keep as semiconductor quality exposure; size with geopolitical risk in mind.</td></tr>
+          <tr><td class="ticker">LRCX</td><td class="account">Webull</td><td><span class="tag tag-sat">Satellite</span></td><td class="action">Good semiconductor equipment exposure, but Webull position is too tiny to matter.</td><td class="action">Either build intentionally or remove from the watchlist-like portfolio.</td></tr>
+          <tr><td class="ticker">SNDK</td><td class="account">Dime</td><td><span class="tag tag-spec">Speculative</span></td><td class="action">Memory/storage cycle exposure. Cyclical, not core.</td><td class="action">Cap as a cycle bet; do not confuse it with durable compounder status.</td></tr>
+          <tr><td class="ticker">DRAM</td><td class="account">Dime + Webull</td><td><span class="tag tag-spec">Speculative</span></td><td class="action">Narrow memory ETF. It duplicates the semiconductor theme while adding cycle risk.</td><td class="action">Keep small or choose between DRAM, SNDK, LRCX, TSM, and NVDA exposure.</td></tr>
+          <tr><td class="ticker">GEV</td><td class="account">Dime + Webull</td><td><span class="tag tag-sat">Satellite</span></td><td class="action">One of your strongest winners and a coherent electrification thesis.</td><td class="action">Let it be a satellite winner; rebalance if it becomes oversized.</td></tr>
+          <tr><td class="ticker">ICLN</td><td class="account">Dime</td><td><span class="tag tag-spec">Speculative</span></td><td class="action">Clean energy ETFs can be brutal: policy, rates, margins, and hype all matter.</td><td class="action">Keep only if you accept long underperformance risk.</td></tr>
+          <tr><td class="ticker">URAN</td><td class="account">Dime</td><td><span class="tag tag-spec">Speculative</span></td><td class="action">Strong theme, but uranium is volatile and narrative-driven.</td><td class="action">Satellite only; never treat commodity miners like core infrastructure.</td></tr>
+          <tr><td class="ticker">VZ</td><td class="account">Dime</td><td><span class="tag tag-income">Income</span></td><td class="action">Telecom dividend exposure, but not a growth engine.</td><td class="action">Keep only if income/defensive equity role is intentional.</td></tr>
+          <tr><td class="ticker">TRIN</td><td class="account">Dime + Webull</td><td><span class="tag tag-income">Income</span></td><td class="action">High yield can be useful, but BDC credit risk is not free money.</td><td class="action">Cap within income sleeve and monitor credit conditions.</td></tr>
+          <tr><td class="ticker">JEPI</td><td class="account">Dime</td><td><span class="tag tag-income">Income</span></td><td class="action">Popular, smoother income ETF, but may lag in powerful bull markets.</td><td class="action">Use for income/volatility dampening, not as long-term growth core.</td></tr>
+          <tr><td class="ticker">XYLD</td><td class="account">Dime</td><td><span class="tag tag-income">Income</span></td><td class="action">Covered calls trade upside for yield. That is a cost, not magic.</td><td class="action">Limit unless current income is more important than compounding.</td></tr>
+          <tr><td class="ticker">QQQI</td><td class="account">Dime</td><td><span class="tag tag-income">Income</span></td><td class="action">Very high income strategy on growth exposure. Complexity risk is real.</td><td class="action">Keep only as a capped income experiment; understand distribution mechanics.</td></tr>
+          <tr><td class="ticker">SCHD</td><td class="account">Dime</td><td><span class="tag tag-income">Income</span></td><td class="action">Cleaner dividend-quality ETF than many high-yield products.</td><td class="action">Good candidate if you want dividend growth instead of option income.</td></tr>
+          <tr><td class="ticker">VYMI</td><td class="account">Dime</td><td><span class="tag tag-income">Income</span></td><td class="action">International dividend exposure helps diversify away from U.S. tech.</td><td class="action">Keep small if income diversification is desired.</td></tr>
+          <tr><td class="ticker">LHSC</td><td class="account">Dime</td><td><span class="tag tag-income">Income</span></td><td class="action">Thai retail REIT income, with local property and rate sensitivity.</td><td class="action">Fine as income sleeve, not growth sleeve.</td></tr>
+          <tr><td class="ticker">3BBIF</td><td class="account">Dime</td><td><span class="tag tag-income">Income</span></td><td class="action">Infrastructure income can be fragile if contracts/regulation change.</td><td class="action">Watch concentration and fund-specific risk.</td></tr>
+          <tr><td class="ticker">BRRGIF</td><td class="account">Dime</td><td><span class="tag tag-income">Income</span></td><td class="action">Niche Thai infrastructure exposure; not a must-have.</td><td class="action">Keep only if distributions justify the complexity.</td></tr>
+          <tr><td class="ticker">SCB</td><td class="account">Dime + Webull</td><td><span class="tag tag-sat">Satellite</span></td><td class="action">Combined exposure is bigger than it looked before Webull. Thai bank risk is concentrated country/sector risk.</td><td class="action">Set a combined-account cap and stop viewing each account separately.</td></tr>
+          <tr><td class="ticker">EWY</td><td class="account">Dime</td><td><span class="tag tag-sat">Satellite</span></td><td class="action">Useful Korea tech/export exposure, but it is a country bet.</td><td class="action">Keep as deliberate regional satellite; do not let it replace global diversification.</td></tr>
+          <tr><td class="ticker">AVUV</td><td class="account">Dime</td><td><span class="tag tag-sat">Satellite</span></td><td class="action">Small-cap value tilt is academically sensible, but needs patience.</td><td class="action">Keep if you can hold through long stretches of underperformance.</td></tr>
+          <tr><td class="ticker">GLDM</td><td class="account">Dime</td><td><span class="tag tag-sat">Commodity</span></td><td class="action">Clean gold exposure. Small enough to be harmless.</td><td class="action">Pair with total commodity/metal cap; do not duplicate endlessly.</td></tr>
+          <tr><td class="ticker">MTS-GOLD</td><td class="account">Dime</td><td><span class="tag tag-sat">Commodity</span></td><td class="action">Gold exposure through Thai fund wrapper. Role is hedge, not growth.</td><td class="action">Keep within 3-8% total commodity target.</td></tr>
+          <tr><td class="ticker">SLV</td><td class="account">Dime</td><td><span class="tag tag-sat">Commodity</span></td><td class="action">Silver is more volatile than gold and partly an industrial metal bet.</td><td class="action">Keep smaller than gold unless you specifically want silver volatility.</td></tr>
+          <tr><td class="ticker">GOP</td><td class="account">Dime</td><td><span class="tag tag-spec">Speculative</span></td><td class="action">Political trading ETF is clever, but clever is not the same as necessary.</td><td class="action">Candidate to simplify unless it is a tiny fun sleeve.</td></tr>
+          <tr><td class="ticker">NANC</td><td class="account">Dime</td><td><span class="tag tag-spec">Speculative</span></td><td class="action">Same issue as GOP. Interesting product, questionable core role.</td><td class="action">Keep as novelty satellite or consolidate away.</td></tr>
+          <tr><td class="ticker">IONQ</td><td class="account">Dime</td><td><span class="tag tag-spec">Speculative</span></td><td class="action">Quantum computing may be huge someday. The stock can still be a widowmaker before then.</td><td class="action">Hard cap inside 0-3% speculative bucket.</td></tr>
+          <tr><td class="ticker">THAI</td><td class="account">Dime</td><td><span class="tag tag-spec">Speculative</span></td><td class="action">Turnaround airline stock. Brutal risk profile, tiny current size.</td><td class="action">Do not add unless you can explain the turnaround thesis better than the market.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title">Next 90 Days</div>
+    <div class="checklist">
+      <div class="check"><div><b>Pick the core route.</b><span>Choose one main core structure: VT-heavy global, VTI/S&P-heavy U.S., or a deliberate blend. Stop adding to duplicate core funds until this is settled.</span></div></div>
+      <div class="check"><div><b>Name every holding's job.</b><span>Each holding must be Core, Quality Growth, Income, Commodity, Speculative, or Cash. If it has no job, it is portfolio clutter.</span></div></div>
+      <div class="check"><div><b>Cap the satellites.</b><span>Set hard limits for AI single names, semiconductors, clean energy, uranium, political ETFs, IONQ, and THAI.</span></div></div>
+      <div class="check"><div><b>Use new money before selling.</b><span>For taxable/fee reasons, rebalance first by directing new contributions into underweight target buckets instead of panic-selling.</span></div></div>
+      <div class="check"><div><b>Deploy cash by rules.</b><span>If Webull cash is emergency cash, leave it alone. If it is investment cash, dollar-cost average into target buckets on a schedule.</span></div></div>
+      <div class="check"><div><b>Review monthly, rebalance quarterly.</b><span>Monthly review for behavior discipline; quarterly rebalancing or whenever a major bucket drifts materially from target.</span></div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title">General Investing Sources</div>
+    <div class="source-links">
+      <a href="https://www.finra.org/investors/investing/investing-basics/asset-allocation-diversification">FINRA: Asset allocation and diversification</a>
+      <a href="https://www.investor.gov/introduction-investing/getting-started/asset-allocation">Investor.gov: Asset allocation</a>
+      <a href="https://www.sec.gov/education/capitalraising/building-blocks/risk-diversification">SEC: Diversifying risk</a>
+      <a href="https://corporate.vanguard.com/content/corporatesite/us/en/corp/how-we-invest/principles-for-investing-success.html">Vanguard: Investing principles</a>
+    </div>
+  </section>
+
+  <div class="footer-note">
+    <span><b>Disclaimer:</b> Educational commentary only, not personalized financial advice.</span>
+    <span><b>Source:</b> 11May2026.html snapshot values.</span>
+    <span><b>Data note:</b> Visible Dime rows sum to 41, while dashboard text says 42 assets.</span>
+  </div>
+</div>
+</body>
+</html>
