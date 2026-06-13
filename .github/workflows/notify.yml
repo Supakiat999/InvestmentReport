@@ -1,0 +1,30 @@
+name: Hourly stock notify
+
+on:
+  schedule:
+    # Every hour at :15, 13:15–20:15 UTC, Mon–Fri
+    # = the US market window ≈ 20:15–03:15 Thailand time
+    # ≈ 8 messages/weekday ≈ 176/month — fits LINE's free tier
+    - cron: '15 13-20 * * 1-5'
+  workflow_dispatch: {}   # lets you trigger a test run from the Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build digest and send
+        run: node notifier/notify.mjs
+        env:
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # holdings kept private (encrypted secret), never committed to the public repo
+          PORTFOLIO_JSON: ${{ secrets.PORTFOLIO_JSON }}

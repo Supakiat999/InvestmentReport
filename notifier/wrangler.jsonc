@@ -1,0 +1,15 @@
+{
+  // Cloudflare Worker config — deploy from this folder with:  wrangler deploy
+  "name": "longview-notifier",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-06-01",
+  "triggers": {
+    // hourly at :15, 13:15–20:15 UTC, Mon–Fri (US market window ≈ 20:15–03:15 TH)
+    "crons": ["15 13-20 * * 1-5"]
+  }
+  // Secrets (set once, never committed):
+  //   wrangler secret put LINE_CHANNEL_ACCESS_TOKEN
+  //   wrangler secret put LINE_CHANNEL_SECRET
+  //   wrangler secret put TELEGRAM_BOT_TOKEN
+  //   wrangler secret put TELEGRAM_CHAT_ID
+}

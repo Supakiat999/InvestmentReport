@@ -1,0 +1,5 @@
+# keep your holdings private — they live in a GitHub secret, not the public site
+notifier/portfolio.json
+notifier/*.local.json
+# local notifier token file (never commit)
+notifier/.env
