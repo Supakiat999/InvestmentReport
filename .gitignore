@@ -3,3 +3,7 @@ notifier/portfolio.json
 notifier/*.local.json
 # local notifier token file (never commit)
 notifier/.env
+# private holdings seed for the tracker (stays on your computer only)
+portfolio-seed.js
+# rich menu image asset
+notifier/richmenu.png

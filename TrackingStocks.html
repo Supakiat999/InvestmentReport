@@ -1,0 +1,2755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Longview — Stock Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0E1B1E; --surface:#152528; --surface2:#1B2F33; --line:#243B40;
+  --gold:#E8B44C; --up:#4FCB8B; --down:#F07474; --text:#E9EEEC; --dim:#8FA6A3;
+  --mono:'IBM Plex Mono',monospace; --ui:'Sora',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--ui);font-size:14px;min-height:100vh}
+button{font-family:var(--ui);cursor:pointer}
+input,textarea,select{font-family:var(--mono);background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--gold);outline-offset:1px}
+
+.tape{overflow:hidden;background:var(--surface);border-bottom:1px solid var(--line);white-space:nowrap}
+.tape-inner{display:inline-block;padding:8px 0;animation:scroll 40s linear infinite;font-family:var(--mono);font-size:12px}
+@keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.tape-inner{animation:none}}
+.tape span{margin:0 18px}
+.tape .u{color:var(--up)} .tape .d{color:var(--down)}
+
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:18px 22px 8px}
+h1{font-size:20px;font-weight:700;letter-spacing:.5px}
+h1 em{font-style:normal;color:var(--gold)}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:8px 14px;font-size:13px;font-weight:600}
+.btn:hover{border-color:var(--gold)}
+.btn.gold{background:var(--gold);color:#1a1408;border-color:var(--gold)}
+.btn.sm{padding:3px 9px;font-size:11px}
+.btn.on{border-color:var(--gold);color:var(--gold)}
+label.tog{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:5px;cursor:pointer}
+
+.tabs{display:flex;gap:6px;padding:6px 22px 0;max-width:1320px;margin:0 auto;flex-wrap:wrap}
+.tabbtn{background:none;border:none;border-bottom:3px solid transparent;color:var(--dim);font-size:14px;font-weight:600;padding:10px 14px}
+.tabbtn:hover{color:var(--text)}
+.tabbtn.act{color:var(--gold);border-bottom-color:var(--gold)}
+.tabpane{display:none}
+.tabpane.act{display:grid}
+
+main{grid-template-columns:1fr 1fr;gap:16px;padding:14px 22px 30px;max-width:1320px;margin:0 auto}
+@media(max-width:920px){main{grid-template-columns:1fr !important}}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.card h2{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);margin-bottom:12px;font-weight:600}
+.full{grid-column:1/-1}
+
+details.help{grid-column:1/-1;background:var(--surface2);border:1px dashed var(--line);border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.7;color:var(--dim)}
+details.help summary{cursor:pointer;color:var(--gold);font-weight:600;font-size:13px}
+details.help b{color:var(--text)}
+details.help ul{margin:8px 0 2px 18px}
+
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;grid-column:1/-1}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.stat .lbl{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+.stat .val{font-family:var(--mono);font-size:18px;font-weight:600;margin-top:4px;line-height:1.5}
+
+.brief{grid-column:1/-1;background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:14px 16px;font-size:13px;line-height:1.8;display:none}
+.brief.show{display:block}
+.brief .bhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.brief .bhead b{color:var(--gold);text-transform:uppercase;letter-spacing:1px;font-size:11px}
+
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px}
+th{text-align:right;font-family:var(--ui);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;padding:6px 6px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;white-space:nowrap}
+th:hover{color:var(--gold)}
+th:first-child,td:first-child{text-align:left}
+td{padding:9px 6px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--surface2)}
+tbody tr.sel{background:var(--surface2);box-shadow:inset 3px 0 0 var(--gold)}
+.sym{font-weight:600}
+.u{color:var(--up)} .d{color:var(--down)}
+.chip{display:inline-block;font-family:var(--ui);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;border:1px solid var(--line)}
+.chip.bull{color:var(--up);border-color:var(--up)}
+.chip.bear{color:var(--down);border-color:var(--down)}
+.chip.mid{color:var(--dim)}
+.chip.lean-b{color:#9BD8B4;border-color:#3e6e55}
+.chip.lean-s{color:#EFAFAF;border-color:#7a4646}
+.chip.mini{font-size:9px;padding:1px 5px;margin-left:3px;border-radius:5px;font-weight:700}
+.bell{font-size:11px}
+.stale{color:var(--gold);font-size:11px;cursor:help}
+.gfilter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+
+.dir-cat{margin-bottom:10px}
+.dir-cat .cat-name{font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.pick{display:inline-block;font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--line);border-radius:14px;padding:3px 10px;margin:0 5px 6px 0;cursor:pointer}
+.pick:hover{border-color:var(--gold);color:var(--gold)}
+.pick.have{opacity:.35;cursor:default}
+.suffix-help{font-size:11px;color:var(--dim);line-height:1.7;border-top:1px solid var(--line);padding-top:8px;margin-top:4px;font-family:var(--mono)}
+
+.dtl-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px}
+.dtl-head .px{font-family:var(--mono);font-size:26px;font-weight:600}
+.dtl-head .chg{font-family:var(--mono);font-size:14px}
+svg{display:block;width:100%}
+.ranges{display:flex;gap:6px;margin:10px 0 4px;flex-wrap:wrap}
+.legend{display:flex;gap:14px;font-size:11px;color:var(--dim);font-family:var(--mono);margin-top:4px;flex-wrap:wrap}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
+
+.chartwrap{position:relative}
+.ctip{position:absolute;top:6px;pointer-events:none;background:rgba(14,27,30,.95);border:1px solid var(--gold);border-radius:7px;padding:7px 10px;font-family:var(--mono);font-size:11.5px;line-height:1.6;white-space:nowrap;display:none;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+.ctip .cd{color:var(--gold);font-weight:600}
+
+.gauge{margin:14px 0}
+.gauge .bar{position:relative;height:10px;background:linear-gradient(90deg,var(--up),var(--gold),var(--down));border-radius:5px;opacity:.85}
+.gauge .bar.fg{background:linear-gradient(90deg,var(--down),var(--gold),var(--up))}
+.gauge .pin{position:absolute;top:-5px;width:4px;height:20px;background:var(--text);border-radius:2px;box-shadow:0 0 6px rgba(0,0,0,.6)}
+.gauge .lbls{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:6px}
+
+.scorebox{border:1px solid var(--line);border-radius:8px;padding:12px;margin:12px 0;background:var(--surface2)}
+.scorebox .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.scorebox .big{font-family:var(--mono);font-size:22px;font-weight:600}
+.sbar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin:8px 0 12px}
+.sbar i{display:block;height:100%;border-radius:4px}
+.srow{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:7px 0;border-top:1px dashed var(--line)}
+.srow .pts{font-family:var(--mono);font-weight:600;min-width:38px;text-align:right}
+.srow .what b{font-family:var(--mono)}
+.srow .why{color:var(--dim);margin-top:2px;line-height:1.5}
+
+.ind{border-top:1px solid var(--line);padding:10px 0}
+.ind .row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:13px}
+.ind .why{font-size:12px;color:var(--dim);margin-top:4px;line-height:1.5}
+
+.hold{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-top:8px}
+.hold label{font-size:11px;color:var(--dim);display:block;margin-bottom:4px}
+.pl{font-family:var(--mono);margin-top:10px;font-size:13px;line-height:1.7}
+textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
+
+.mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;margin:12px 0}
+.mcell{background:var(--surface2);border:1px solid var(--line);border-radius:7px;padding:8px 10px}
+.mcell .k{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+.mcell .v{font-family:var(--mono);font-size:13px;font-weight:600;margin-top:3px}
+
+.news-item{border-top:1px solid var(--line);padding:10px 2px}
+.news-item:first-of-type{border-top:none}
+.news-item a{color:var(--text);text-decoration:none;font-size:13px;line-height:1.45;display:block}
+.news-item a:hover{color:var(--gold)}
+.news-item .meta{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:3px}
+.news-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+
+.reco-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:920px){.reco-grid{grid-template-columns:1fr}}
+.reco-col{border:1px solid var(--line);border-radius:8px;padding:14px;background:var(--surface2)}
+.reco-col .verdict{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.reco-col .verdict .word{font-size:20px;font-weight:700;letter-spacing:1px}
+.reco-col .verdict .horizon{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+.reco-col .verdict .scnum{font-family:var(--mono);font-size:15px;color:var(--dim)}
+.v-buy{color:var(--up)} .v-sell{color:var(--down)} .v-hold{color:var(--gold)}
+.v-lean-b{color:#9BD8B4} .v-lean-s{color:#EFAFAF}
+.reco-why{font-size:12px;color:var(--text);line-height:1.65;border-top:1px solid var(--line);margin-top:8px;padding-top:8px}
+.reco-fact{display:flex;gap:8px;font-size:12px;padding:6px 0;border-top:1px dashed var(--line);line-height:1.5}
+.reco-fact .fp{font-family:var(--mono);font-weight:600;min-width:34px;text-align:right}
+.reco-fact .ft b{font-family:var(--mono)}
+.reco-fact .fw{color:var(--dim)}
+.reco-summary{margin-top:14px;border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:8px;padding:13px 15px;font-size:13px;line-height:1.7;background:var(--surface2)}
+
+.plan-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:10px 0}
+.plan-cell{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 11px}
+.plan-cell .k{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+.plan-cell .v{font-family:var(--mono);font-size:15px;font-weight:600;margin-top:3px}
+
+.mood-comp{border:1px solid var(--line);border-radius:8px;padding:13px;background:var(--surface2);margin-top:12px}
+.mood-comp .mhead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mood-comp .mhead b{font-size:13px}
+.mood-comp .mval{font-family:var(--mono);font-size:12px;color:var(--gold);margin:4px 0}
+.mood-comp .mwhy{font-size:12px;color:var(--dim);line-height:1.6}
+.mood-big{text-align:center;padding:10px 0 4px}
+.mood-big .num{font-family:var(--mono);font-size:54px;font-weight:700}
+.mood-big .word{font-size:18px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
+
+.donut-wrap{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.donut-wrap svg{width:170px;height:170px;flex:none}
+.donut-legend{flex:1;min-width:200px;font-family:var(--mono);font-size:12px}
+.donut-legend .dl{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.donut-legend .dl i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
+
+.warnbox{border:1px solid var(--down);border-radius:8px;padding:10px 12px;font-size:12px;color:#EFAFAF;line-height:1.6;margin:10px 0}
+
+.note-disc{grid-column:1/-1;font-size:12px;color:var(--dim);line-height:1.6;padding:0 4px}
+.loading{color:var(--dim);font-family:var(--mono);font-size:12px;padding:12px}
+.errtxt{color:var(--down);font-family:var(--ui);font-size:11px}
+.status{grid-column:1/-1;font-family:var(--mono);font-size:12px;color:var(--dim);padding:0 4px;min-height:16px}
+.focus-msg{background:var(--surface2);border:1px dashed var(--line);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--dim);line-height:1.6;margin-top:12px}
+.savebadge{font-family:var(--mono);font-size:11px;color:var(--dim)}
+
+#printReport{display:none}
+@media print{
+  body>*{display:none !important}
+  body{background:#fff}
+  #printReport{display:block !important;color:#000;font-family:Georgia,serif;padding:20px;font-size:12px;line-height:1.6}
+  #printReport h1{font-size:20px;color:#000;margin-bottom:2px}
+  #printReport h2{font-size:14px;margin:16px 0 6px;color:#000;border-bottom:1px solid #999;padding-bottom:3px}
+  #printReport table{width:100%;border-collapse:collapse;font-family:Georgia,serif;font-size:11px}
+  #printReport th,#printReport td{border:1px solid #bbb;padding:4px 6px;text-align:right;color:#000}
+  #printReport th:first-child,#printReport td:first-child{text-align:left}
+  #printReport .pu{color:#0a7a40}#printReport .pd{color:#b3261e}
+  #printReport .small{font-size:10px;color:#444}
+}
+
+/* modal (used by 📝 Summarize) */
+.modal-bg{position:fixed;inset:0;background:rgba(5,12,14,.78);display:none;align-items:flex-start;justify-content:center;z-index:50;overflow:auto;padding:30px 14px}
+.modal-bg.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--gold);border-radius:12px;max-width:760px;width:100%;padding:20px 22px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.modal h2{font-size:16px;color:var(--gold);margin-bottom:4px}
+.modal .mclose{float:right;font-size:20px;background:none;border:none;color:var(--dim);cursor:pointer;line-height:1}
+.modal .mclose:hover{color:var(--text)}
+.sum-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:14px 0}
+.sum-cell{background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.sum-cell .k{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+.sum-cell .v{font-family:var(--mono);font-size:16px;font-weight:600;margin-top:3px}
+.sum-sec{border-top:1px solid var(--line);padding:11px 0;font-size:13px;line-height:1.7}
+.sum-sec b.lbl{color:var(--gold);font-size:11px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px}
+.sum-narrative{background:var(--surface2);border-left:3px solid var(--gold);border-radius:8px;padding:13px 15px;font-size:13px;line-height:1.75;margin:8px 0}
+.healthbar{height:10px;background:var(--line);border-radius:5px;overflow:hidden;margin:6px 0}
+.healthbar i{display:block;height:100%;border-radius:5px}
+.pillrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.pill{font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:2px 9px}
+</style>
+</head>
+<body>
+
+<div class="tape"><div class="tape-inner" id="tape">Longview — fetching quotes…</div></div>
+
+<header>
+  <h1>Long<em>view</em> <span style="font-size:11px;color:var(--dim);font-weight:400">free personal stock tracker</span></h1>
+  <div class="controls">
+    <input id="addSym" placeholder="Add ticker e.g. PTT.BK" style="width:150px" maxlength="14">
+    <button class="btn gold" onclick="addTicker()">Add</button>
+    <button class="btn" onclick="refreshAll()" title="update all prices">↻ Refresh</button>
+    <label class="tog" title="refresh quotes every 60 seconds"><input type="checkbox" id="auto" onchange="toggleAuto()"> Auto 60s</label>
+    <label class="tog" title="desktop notification + sound when a price alert triggers"><input type="checkbox" id="notif" onchange="toggleNotify()"> 🔔 Notify</label>
+    <button class="btn gold" onclick="openSummary()" title="one-click plain-English summary of your whole portfolio">📝 Summarize</button>
+    <button class="btn" onclick="makeReport()" title="print-friendly snapshot of your whole portfolio">🖨 Report</button>
+    <button class="btn" onclick="exportData()">Export</button>
+    <button class="btn" onclick="document.getElementById('imp').click()">Import</button>
+    <input type="file" id="imp" accept=".json" style="display:none" onchange="importData(event)">
+    <span class="savebadge" id="savebadge" title="Your tickers, holdings, notes and alerts are auto-saved in this browser">💾 auto-save on</span>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tabbtn act" id="tb-watch" onclick="switchTab('watch')">📌 Watchlist</button>
+  <button class="tabbtn" id="tb-held" onclick="switchTab('held')">💹 Holdings</button>
+  <button class="tabbtn" id="tb-mood" onclick="switchTab('mood')">🌡 Market Mood</button>
+  <button class="tabbtn" id="tb-port" onclick="switchTab('port')">💼 Portfolio</button>
+</nav>
+
+<main class="tabpane act" id="tab-dash">
+  <details class="help"><summary>❓ New here? How to use this page</summary>
+    <ul>
+      <li><b>Add stocks</b> with the box at the top (Thai stocks need <b>.BK</b>, e.g. PTT.BK) or one click in the Quick-add list at the bottom.</li>
+      <li><b>Click any row</b> in the Watchlist to open its chart, news, trade plan and Buy/Hold/Sell reasoning.</li>
+      <li><b>Short</b> = what the chart says for the next days–weeks. <b>Long</b> = for 6+ months. Click the row to read exactly why, value by value.</li>
+      <li>Tell the app <b>how many shares you own</b> (Details → Your holding) to unlock the Portfolio tab, P/L tracking and the printable Report.</li>
+      <li>Everything is saved automatically in this browser. If a price shows ⏱, you're seeing the last saved data while a fresh fetch is retried.</li>
+    </ul>
+  </details>
+
+  <div class="brief" id="brief"></div>
+  <div class="summary" id="summary"></div>
+  <div class="status" id="status"></div>
+
+  <div class="card">
+    <h2>Watchlist <span style="font-weight:400;text-transform:none;letter-spacing:0">— click headers to sort, click a row for details</span></h2>
+    <div class="gfilter" id="gfilter"></div>
+    <div id="wl"><div class="loading">Starting up…</div></div>
+  </div>
+
+  <div class="card" id="detail">
+    <h2>Details</h2>
+    <div class="loading">Select a stock from the watchlist to see its chart, score breakdown, and what every number means.</div>
+  </div>
+
+  <div class="card">
+    <h2>📰 News <span style="font-weight:400;text-transform:none;letter-spacing:0">— latest headlines per ticker</span></h2>
+    <div class="news-tabs" id="newsTabs"></div>
+    <div id="news"><div class="loading">Select a stock or pick a ticker above to load its news.</div></div>
+  </div>
+
+  <div class="card" id="recoCard">
+    <h2>🎯 Recommendation — short term vs long term</h2>
+    <div class="loading">Select a stock from the watchlist to see Buy / Hold / Sell readings for both horizons.</div>
+  </div>
+
+  <div class="card full" id="planCard" style="display:none"></div>
+
+  <div class="card full" id="recoWhy">
+    <h2>🧠 Why buy or sell — the full reasoning, value by value</h2>
+    <div class="loading">Select a stock above. This section walks through every number used in the verdicts and explains, in plain English, why each one pushes toward buy or sell.</div>
+  </div>
+
+  <div class="card full" id="btCard" style="display:none"></div>
+
+  <div class="card full" id="ideasCard">
+    <h2>💡 Stock ideas — scan 24 quality names you don't own yet</h2>
+    <div style="font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:10px">One click fetches live data for 24 widely-followed, profitable large-caps and ETFs across different sectors (healthcare, payments, retail, energy, industrials… — areas your tech-heavy portfolio barely touches) and ranks them with the same transparent scoring used on your watchlist. The top 10 are <b>research starting points, not instructions</b>.</div>
+    <button class="btn gold" id="ideasBtn" onclick="scanIdeas()">🔍 Scan ideas now</button>
+    <div id="ideasOut"></div>
+  </div>
+
+  <div class="card full">
+    <h2>Quick add — Thai &amp; international <button class="btn sm" style="float:right" onclick="document.getElementById('dir').style.display=document.getElementById('dir').style.display==='none'?'block':'none'">show / hide</button></h2>
+    <div id="dir"></div>
+  </div>
+
+  <p class="note-disc">⚠️ All scores, Buy / Hold / Sell readings, trade plans and the market-mood gauge are built only from <b>price-based indicators</b> plus trailing dividends — they know nothing about a company's earnings, debt, lawsuits, or your personal situation. They show how a textbook trend-follower would read the chart, as an educational tool. This is <b>not financial advice</b>. Data: Yahoo Finance public endpoint via free relays, may be delayed ~15 min. Your data is auto-saved in this browser (localStorage); use Export for a backup file.</p>
+</main>
+
+<main class="tabpane" id="tab-mood">
+  <details class="help"><summary>❓ What is this page?</summary>
+    <ul>
+      <li>This gauge estimates whether the <b>overall US market</b> is currently driven by <b>fear</b> (panic, selling) or <b>greed</b> (euphoria, chasing) — the same idea as CNN's famous Fear &amp; Greed Index, computed transparently from live market data you can verify below.</li>
+      <li><b>Why it matters:</b> the market's mood is the weather your stocks sail in. The same BUY signal on a stock is riskier during extreme greed (crowds are euphoric, corrections start there) and often more rewarding during extreme fear (the best long-term entries in history were made when this gauge was deep red).</li>
+      <li><b>The contrarian rule of thumb</b> (Warren Buffett): "Be fearful when others are greedy, and greedy when others are fearful." Extreme readings are more informative than mid-range ones.</li>
+      <li>It is <b>not a timing machine</b> — markets can stay greedy or fearful for months. Use it as context, never as the whole decision.</li>
+    </ul>
+  </details>
+  <div class="card full" id="moodCard"><h2>🌡 Market mood — fear &amp; greed</h2><div class="loading">Loading market data (S&amp;P 500, VIX, bonds)…</div></div>
+</main>
+
+<main class="tabpane" id="tab-port">
+  <details class="help"><summary>❓ What is this page?</summary>
+    <ul>
+      <li>This page looks at your holdings <b>as one portfolio</b> instead of separate stocks. Enter shares + cost in any stock's Details panel to populate it.</li>
+      <li><b>Everything is converted</b> to your chosen base currency using live exchange rates, so Thai baht and US dollar holdings finally add up to one number.</li>
+      <li><b>Allocation</b> shows concentration risk — if one stock is a third of your money, your fate is tied to it. <b>Correlation</b> shows hidden duplication (two funds that move identically are really one bet). <b>Dividend calendar</b> estimates when your next payments arrive.</li>
+      <li>The history chart shows how your <i>current</i> holdings would have performed over the past year vs the S&amp;P 500 — an honest benchmark check.</li>
+    </ul>
+  </details>
+  <div class="card full" id="portTotals"><h2>💼 Portfolio</h2><div class="loading">Enter your shares in any stock's Details panel (Dashboard tab) to build your portfolio.</div></div>
+  <div class="card full" id="portActions" style="display:none"></div>
+  <div class="card" id="portAlloc" style="display:none"></div>
+  <div class="card" id="portDivs" style="display:none"></div>
+  <div class="card full" id="portHist" style="display:none"></div>
+  <div class="card full" id="portCorr" style="display:none"></div>
+</main>
+
+<div id="printReport"></div>
+
+<div class="modal-bg" id="summaryModal" onclick="if(event.target===this)closeSummary()">
+  <div class="modal" id="summaryBody"></div>
+</div>
+
+<!-- private holdings (gitignored; absent on the public host = no personal data served) -->
+<script src="portfolio-seed.js" onerror="window.__noSeed=1"></script>
+<script>
+'use strict';
+/* ================= data layer ================= */
+const RELAYS = [
+  u => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u),
+  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+  u => 'https://api.allorigins.win/get?url=' + encodeURIComponent(u),
+  u => 'https://r.jina.ai/' + u
+];
+let relayOrder = [0,1,2,3,4];
+/* a relay that failed repeatedly gets a short time-out so we stop wasting time on it —
+   but if EVERY relay is cooling down we ignore the cooldowns, otherwise a burst of
+   failures could lock us out of all relays at once and nothing would ever fetch */
+const relayFail = RELAYS.map(()=>({n:0, at:0}));
+function relayUsableRaw(i){ return relayFail[i].n < 5 || (Date.now()-relayFail[i].at) > 30000; }
+function relayUsable(i){ return relayUsableRaw(i) || !RELAYS.some((_,k)=>relayUsableRaw(k)); }
+function relayBad(i){ relayFail[i].n++; relayFail[i].at = Date.now(); }
+function relayGood(i){ relayFail[i].n = 0; relayOrder = [i].concat(relayOrder.filter(x=>x!==i)); }
+const Y_HOSTS = ['https://query1.finance.yahoo.com','https://query2.finance.yahoo.com'];
+
+function fetchWithTimeout(url, ms){
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), ms);
+  return fetch(url, {signal:ctrl.signal}).finally(()=>clearTimeout(t));
+}
+
+/* speed-test all relays once in parallel; rank fastest-first */
+async function rankRelays(){
+  const test = Y_HOSTS[0] + '/v8/finance/chart/AAPL?range=1d&interval=1d';
+  const results = await Promise.allSettled(RELAYS.map(async (r,i)=>{
+    const t0 = performance.now();
+    const resp = await fetchWithTimeout(r(test), 6000);
+    if(!resp.ok) throw 0;
+    let j = await resp.json();
+    if (j && j.contents) j = JSON.parse(j.contents);
+    if (!(j && j.chart && j.chart.result)) throw 0;
+    return {i, ms: performance.now() - t0};
+  }));
+  const ok = results.filter(r=>r.status==='fulfilled').map(r=>r.value).sort((a,b)=>a.ms-b.ms);
+  if(ok.length){
+    const okIdx = ok.map(o=>o.i);
+    relayOrder = okIdx.concat(RELAYS.map((_,i)=>i).filter(i=>!okIdx.includes(i)));
+    return Math.round(ok[0].ms);
+  }
+  return null;
+}
+
+/* batch quote update: ONE request refreshes prices for up to 20 symbols at once.
+   This is the main fix for "couldn't fetch" — 30+ individual requests used to hammer
+   the free relays into rate-limiting; now a whole refresh is 2-3 requests total. */
+async function sparkFetch(symbols, range='5d', chunkSize=20){
+  const out={};
+  for(let c=0;c<symbols.length;c+=chunkSize){
+    const chunk=symbols.slice(c,c+chunkSize);
+    const target=`${Y_HOSTS[0]}/v8/finance/spark?symbols=${encodeURIComponent(chunk.join(','))}&range=${range}&interval=1d`;
+    let got=false;
+    for(const ri of relayOrder){
+      if(ri===0) continue;            /* codetabs mangles spark URLs */
+      if(!relayUsable(ri)) continue;
+      try{
+        const r=await fetchWithTimeout(RELAYS[ri](target), 9000);
+        if(!r.ok) continue;
+        let j=await r.json();
+        if(j && typeof j.contents==='string'){ try{ j=JSON.parse(j.contents); }catch(e){ continue; } }
+        if(j && !j.spark && Object.keys(j).some(k=>j[k]&&j[k].close)){
+          for(const k in j) if(j[k]&&j[k].close) out[k]=j[k];
+          got=true; relayGood(ri); break;
+        }
+        if(j && j.spark && j.spark.result){
+          for(const it of j.spark.result){ const resp=it.response&&it.response[0]; if(resp) out[it.symbol]={timestamp:resp.timestamp, close:resp.indicators.quote[0].close}; }
+          got=true; relayGood(ri); break;
+        }
+      }catch(e){}
+    }
+    if(!got) for(const s of chunk) if(!(s in out)) out[s]=null;
+  }
+  return out;
+}
+
+/* apply a spark entry (timestamps + closes) onto cached full data, then re-derive */
+function applySpark(d, ent){
+  if(!ent || !ent.close || !ent.close.length || !d.closes || !d.closes.length) return null;
+  const cl=[], ts=[];
+  for(let i=0;i<ent.close.length;i++) if(ent.close[i]!=null){ cl.push(ent.close[i]); ts.push(ent.timestamp[i]); }
+  if(!cl.length) return null;
+  const base={ sym:d.sym, closes:[...d.closes], highs:[...d.highs], lows:[...d.lows], vols:[...d.vols], times:[...d.times],
+    divs:d.divs||[], name:d.name, currency:d.currency };
+  const newDay=new Date(ts[ts.length-1]*1000).toDateString();
+  const oldDay=new Date(base.times[base.times.length-1]*1000).toDateString();
+  const px=cl[cl.length-1];
+  if(newDay===oldDay){
+    base.closes[base.closes.length-1]=px;
+    base.highs[base.highs.length-1]=Math.max(base.highs[base.highs.length-1],px);
+    base.lows[base.lows.length-1]=Math.min(base.lows[base.lows.length-1],px);
+  } else {
+    base.closes.push(px); base.highs.push(px); base.lows.push(px); base.vols.push(0); base.times.push(ts[ts.length-1]);
+  }
+  base.price=px;
+  base.prev=base.closes.length>=2?base.closes[base.closes.length-2]:px;
+  const out=derive(base);
+  out.histAt=d.histAt;
+  out.lite=d.lite;
+  return out;
+}
+
+/* fetch one Yahoo chart payload (any symbol, any range) through the relays */
+async function fetchChart(sym, range){
+  for (const host of Y_HOSTS){
+    const target = `${host}/v8/finance/chart/${encodeURIComponent(sym)}?range=${range}&interval=1d&events=div`;
+    for (const ri of relayOrder){
+      if(!relayUsable(ri)) continue;
+      try{
+        /* 5y payloads are ~140KB — give slow relays more time before giving up */
+        const r = await fetchWithTimeout(RELAYS[ri](target), range==='5y'?15000:9000);
+        if(!r.ok){ relayBad(ri); continue; }
+        let j = await r.json();
+        if (j && j.contents){ try{ j = JSON.parse(j.contents); }catch(e){ relayBad(ri); continue; } }
+        const res = j && j.chart && j.chart.result && j.chart.result[0];
+        if (res && res.indicators){ relayGood(ri); return {ok:true, res}; }
+        if (j && j.chart && j.chart.error) return {ok:false, notFound:true};
+        relayBad(ri);
+      }catch(e){ relayBad(ri); }
+    }
+  }
+  return {ok:false, notFound:false};
+}
+
+/* fetch a JSON endpoint through the relays (used for news) */
+async function fetchJsonViaRelay(target, ms){
+  for (const ri of relayOrder){
+    if(!relayUsable(ri)) continue;
+    try{
+      const r = await fetchWithTimeout(RELAYS[ri](target), ms||8000);
+      if(!r.ok) continue;
+      let j = await r.json();
+      if (j && typeof j.contents === 'string'){ try{ j = JSON.parse(j.contents); }catch(e){ continue; } }
+      if (j) return j;
+    }catch(e){}
+  }
+  return null;
+}
+
+/* run jobs with limited concurrency (parallel but polite to free relays) */
+async function pool(items, n, fn){
+  let i = 0;
+  const workers = Array(Math.min(n, items.length)).fill(0).map(async ()=>{
+    while(i < items.length){ const idx = i++; await fn(items[idx]); }
+  });
+  await Promise.all(workers);
+}
+
+/* ---------- math helpers ---------- */
+function sma(a,n){ if(!a||a.length<n) return null; let s=0; for(let i=a.length-n;i<a.length;i++)s+=a[i]; return s/n; }
+function smaSeries(a,n){ const out=[]; let s=0; for(let i=0;i<a.length;i++){ s+=a[i]; if(i>=n)s-=a[i-n]; out.push(i>=n-1?s/n:null);} return out; }
+function emaSeries(a,n){ const k=2/(n+1); const out=[]; let e=null; for(let i=0;i<a.length;i++){ e=(e==null)?a[i]:a[i]*k+e*(1-k); out.push(e);} return out; }
+function rsi14(c){
+  if(!c||c.length<15) return null;
+  let g=0,l=0;
+  for(let i=1;i<=14;i++){const d=c[i]-c[i-1]; d>0?g+=d:l-=d;}
+  let ag=g/14, al=l/14;
+  for(let i=15;i<c.length;i++){const d=c[i]-c[i-1]; ag=(ag*13+(d>0?d:0))/14; al=(al*13+(d<0?-d:0))/14;}
+  return al===0?100:100-100/(1+ag/al);
+}
+function atr14(highs,lows,closes){
+  const n=closes.length; if(n<16) return null;
+  const trs=[];
+  for(let i=1;i<n;i++) trs.push(Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1])));
+  let a=0; for(let i=0;i<14;i++)a+=trs[i]; a/=14;
+  for(let i=14;i<trs.length;i++) a=(a*13+trs[i])/14;
+  return a;
+}
+function maxDrawdown(c){ if(!c||c.length<2) return null; let peak=c[0], dd=0; for(const v of c){ if(v>peak)peak=v; const d=v/peak-1; if(d<dd)dd=d; } return dd*100; }
+function pearson(a,b){
+  const n=Math.min(a.length,b.length); if(n<30) return null;
+  let sa=0,sb=0; for(let i=0;i<n;i++){sa+=a[i];sb+=b[i];}
+  const ma=sa/n, mb=sb/n;
+  let cov=0,va=0,vb=0;
+  for(let i=0;i<n;i++){ const da=a[i]-ma, db=b[i]-mb; cov+=da*db; va+=da*da; vb+=db*db; }
+  return (va&&vb) ? cov/Math.sqrt(va*vb) : null;
+}
+function dailyReturns(c,n){ const out=[]; const s=Math.max(1,c.length-n); for(let i=s;i<c.length;i++) out.push(c[i]/c[i-1]-1); return out; }
+function clamp01(x){ return Math.max(0,Math.min(100,x)); }
+
+/* ---------- parse a full chart payload into our data object ---------- */
+function parse(sym,res){
+  const m = res.meta || {};
+  const q = (res.indicators.quote && res.indicators.quote[0]) || {};
+  const cr=q.close||[], hr=q.high||[], lr=q.low||[], vr=q.volume||[];
+  const ts = res.timestamp || [];
+  const closes=[], highs=[], lows=[], vols=[], times=[];
+  for(let i=0;i<cr.length;i++){
+    if(cr[i]!=null){
+      closes.push(cr[i]);
+      highs.push(hr[i]!=null?hr[i]:cr[i]);
+      lows.push(lr[i]!=null?lr[i]:cr[i]);
+      vols.push(vr[i]!=null?vr[i]:0);
+      times.push(ts[i]);
+    }
+  }
+  const price = (m.regularMarketPrice != null) ? m.regularMarketPrice : closes[closes.length-1];
+  /* chartPreviousClose on a long-range chart is the close from YEARS ago — never use it for day change */
+  const prev = (m.regularMarketPreviousClose != null) ? m.regularMarketPreviousClose
+    : (m.previousClose != null) ? m.previousClose
+    : (closes.length>=2 ? closes[closes.length-2] : price);
+  const divs=[];
+  if(res.events && res.events.dividends){
+    for(const k in res.events.dividends){ const d=res.events.dividends[k]; divs.push({d:d.date, a:d.amount}); }
+    divs.sort((a,b)=>a.d-b.d);
+  }
+  return derive({ sym, price, prev, closes, highs, lows, vols, times, divs,
+    name: m.longName || m.shortName || sym, currency: m.currency || 'USD' });
+}
+
+/* compute every indicator from the base arrays — used for fresh fetches AND cache rehydration */
+function derive(b){
+  const closes=b.closes, n=closes.length;
+  const price = b.price!=null ? b.price : (n?closes[n-1]:null);
+  const prev = b.prev!=null ? b.prev : (n>=2?closes[n-2]:price);
+  const w52 = closes.slice(-252);
+  const hi = w52.length?Math.max(...w52):price, lo = w52.length?Math.min(...w52):price;
+  const ret = k => n>k ? (price/closes[n-1-k]-1)*100 : null;
+  let div12=0;
+  const cutoff=Date.now()/1000-365*86400;
+  for(const dv of (b.divs||[])) if(dv.d>=cutoff) div12+=dv.a;
+  let macd=null, macdSig=null, macdHist=null;
+  if(n>=35){
+    const e12=emaSeries(closes,12), e26=emaSeries(closes,26);
+    const line=closes.map((_,i)=>e12[i]-e26[i]);
+    const sig=emaSeries(line,9);
+    macd=line[line.length-1]; macdSig=sig[sig.length-1]; macdHist=macd-macdSig;
+  }
+  let vol=null;
+  if(n>30){
+    const rets=dailyReturns(closes,253);
+    const mean=rets.reduce((a,c)=>a+c,0)/rets.length;
+    const sd=Math.sqrt(rets.reduce((a,c)=>a+(c-mean)*(c-mean),0)/rets.length);
+    vol=sd*Math.sqrt(252)*100;
+  }
+  let volRatio=null;
+  if(b.vols.length>=25 && b.vols.some(v=>v>0)){
+    const avg=a=>a.reduce((x,y)=>x+y,0)/a.length;
+    const v5=avg(b.vols.slice(-5)), v20=avg(b.vols.slice(-20));
+    if(v20>0) volRatio=v5/v20;
+  }
+  const years = n>1 ? (b.times[n-1]-b.times[0])/(365.25*86400) : 0;
+  return Object.assign({}, b, {
+    price, prev, chg:price-prev, chgPct:prev?(price-prev)/prev*100:0,
+    hi, lo, rangePos:(price-lo)/((hi-lo)||1)*100,
+    rsi:rsi14(closes), sma20:sma(closes,20), sma50:sma(closes,50), sma200:sma(closes,200),
+    macd, macdSig, macdHist, volAnnual:vol, volRatio,
+    atr:atr14(b.highs,b.lows,closes), maxDD:maxDrawdown(closes),
+    r1m:ret(21), r3m:ret(63), r6m:ret(126), r1y:ret(252),
+    rAll: n>2 ? (price/closes[0]-1)*100 : null,
+    cagr: years>0.8 ? (Math.pow(price/closes[0], 1/years)-1)*100 : null,
+    years, yield: div12>0 ? div12/price*100 : 0, div12,
+    manual:false, fetchedAt:Date.now()
+  });
+}
+
+/* light refresh: tiny 5-day payload to update price/day-change, reusing the cached 5y history */
+async function lightUpdate(d){
+  const r = await fetchChart(d.sym, '5d');
+  if(!r.ok) return null;
+  const m=r.res.meta||{};
+  const q=(r.res.indicators.quote && r.res.indicators.quote[0])||{};
+  const ts=r.res.timestamp||[], cr=q.close||[], hr=q.high||[], lr=q.low||[], vr=q.volume||[];
+  const base={ sym:d.sym, closes:[...d.closes], highs:[...d.highs], lows:[...d.lows], vols:[...d.vols], times:[...d.times],
+    divs:d.divs||[], name:d.name, currency:d.currency };
+  /* append or replace the latest daily bar */
+  const lastIdx=cr.map((v,i)=>v!=null?i:-1).filter(i=>i>=0).pop();
+  if(lastIdx!=null && base.times.length){
+    const newDay=new Date(ts[lastIdx]*1000).toDateString();
+    const oldDay=new Date(base.times[base.times.length-1]*1000).toDateString();
+    const bar=[cr[lastIdx], hr[lastIdx]!=null?hr[lastIdx]:cr[lastIdx], lr[lastIdx]!=null?lr[lastIdx]:cr[lastIdx], vr[lastIdx]||0, ts[lastIdx]];
+    if(newDay===oldDay){
+      base.closes[base.closes.length-1]=bar[0]; base.highs[base.highs.length-1]=bar[1];
+      base.lows[base.lows.length-1]=bar[2]; base.vols[base.vols.length-1]=bar[3];
+    } else {
+      base.closes.push(bar[0]); base.highs.push(bar[1]); base.lows.push(bar[2]); base.vols.push(bar[3]); base.times.push(bar[4]);
+    }
+  }
+  base.price=(m.regularMarketPrice!=null)?m.regularMarketPrice:base.closes[base.closes.length-1];
+  base.prev=(m.regularMarketPreviousClose!=null)?m.regularMarketPreviousClose
+    :(m.previousClose!=null)?m.previousClose
+    :(base.closes.length>=2?base.closes[base.closes.length-2]:base.price);
+  const out=derive(base);
+  out.histAt=d.histAt;       /* keep the timestamp of the last FULL history fetch */
+  out.lite=d.lite;
+  return out;
+}
+
+/* currency guess for spark-seeded tickers (spark has no meta) — corrected by the full fetch later */
+function guessCurrency(sym){
+  const suf=(sym.match(/\.([A-Z]+)$/)||[])[1];
+  return {BK:'THB',T:'JPY',HK:'HKD',KS:'KRW',SI:'SGD',PA:'EUR',DE:'EUR',SW:'CHF',L:'GBp',AX:'AUD'}[suf]||'USD';
+}
+/* instant seeding: ONE small batched request per ~8 tickers gives a year of closes —
+   enough for price, trend, RSI, scores and verdicts. The slow per-ticker 5-year
+   downloads then upgrade each row in the background (adding dividends, ATR, volume). */
+async function sparkSeed(syms){
+  if(!syms.length) return;
+  const sp=await sparkFetch(syms,'1y',8);
+  for(const s of syms){
+    const e=sp[s];
+    if(!e||!e.close) continue;
+    const closes=[],times=[];
+    for(let i=0;i<e.close.length;i++) if(e.close[i]!=null){ closes.push(e.close[i]); times.push(e.timestamp[i]); }
+    if(closes.length<30) continue;
+    const d=derive({ sym:s, price:closes[closes.length-1], prev:closes.length>=2?closes[closes.length-2]:null,
+      closes, highs:[...closes], lows:[...closes], vols:closes.map(()=>0), times, divs:[],
+      name:s, currency:guessCurrency(s) });
+    d.lite=true;            /* flags "seeded, awaiting full history" — keeps it in the retry queue */
+    state.data[s]=d; state.status[s]='ok';
+  }
+}
+
+/* beta + correlation vs the S&P 500 (SPY) */
+function betaVsMarket(d, spy){
+  if(!d||!spy||!d.closes||!spy.closes) return null;
+  const N=Math.min(d.closes.length, spy.closes.length, 253);
+  if(N<40) return null;
+  const ra=dailyReturns(d.closes.slice(-N), N), rb=dailyReturns(spy.closes.slice(-N), N);
+  const n=Math.min(ra.length,rb.length);
+  let sa=0,sb=0; for(let i=0;i<n;i++){sa+=ra[i];sb+=rb[i];}
+  const ma=sa/n, mb=sb/n;
+  let cov=0, vb=0;
+  for(let i=0;i<n;i++){ cov+=(ra[i]-ma)*(rb[i]-mb); vb+=(rb[i]-mb)*(rb[i]-mb); }
+  if(!vb) return null;
+  return { beta: cov/vb, corr: pearson(ra,rb) };
+}
+/* ================= score: transparent points system ================= */
+function scoreOf(d){
+  const parts=[]; let pts=0;
+  if(d.sma200!=null){
+    const above=d.price>d.sma200;
+    pts += above?20:-20;
+    parts.push({pts:above?+20:-20,what:'Price vs 200-day average',
+      why: above
+      ? 'Price is above its 200-day average. This is the single most-used definition of a long-term uptrend — institutions and trend funds treat this side of the line as "own it" territory, because historically stocks above it keep rising more often than not.'
+      : 'Price is below its 200-day average — the textbook definition of a long-term downtrend. Trend-followers treat this side of the line as "avoid / reduce" territory because downtrends tend to persist.'});
+  } else parts.push({pts:0,what:'Price vs 200-day average',why:'Not enough price history to compute (needs ~200 trading days).'});
+  if(d.sma50!=null && d.sma200!=null){
+    const golden=d.sma50>d.sma200;
+    pts += golden?15:-15;
+    parts.push({pts:golden?+15:-15,what:'50-day vs 200-day average',
+      why: golden
+      ? 'The 50-day average is above the 200-day (a "golden cross" state): recent prices are running hotter than the long-term base. Read as confirmation that the medium-term trend points up.'
+      : 'The 50-day average is below the 200-day (a "death cross" state): recent prices are weaker than the long-term base. Read as the medium-term trend pointing down.'});
+  }
+  if(d.rsi!=null){
+    let p,why;
+    if(d.rsi>70){p=-10;why=`RSI ${d.rsi.toFixed(0)} is above 70 = overbought: the recent rally was unusually one-sided. Points are deducted not because the stock is bad, but because buying after a vertical run often means a worse entry price — pullbacks are statistically more likely from here.`;}
+    else if(d.rsi>=55){p=+10;why=`RSI ${d.rsi.toFixed(0)} sits in the 55–70 "healthy momentum" zone: buyers are in control but the move isn't overheated yet. This is the zone trend-followers like best.`;}
+    else if(d.rsi>=45){p=0;why=`RSI ${d.rsi.toFixed(0)} is in the 45–55 dead-center zone: buyers and sellers are balanced. Momentum gives no edge either way, so no points.`;}
+    else if(d.rsi>=30){p=-5;why=`RSI ${d.rsi.toFixed(0)} is in the 30–45 zone: sellers have the upper hand, but not extremely. Mild deduction for weak momentum.`;}
+    else {p=+5;why=`RSI ${d.rsi.toFixed(0)} is below 30 = oversold: selling has been so heavy it may be exhausted. A small bonus because washed-out stocks often bounce — but note this is the riskiest signal here; oversold can stay oversold.`;}
+    pts+=p; parts.push({pts:p,what:'RSI momentum (14-day)',why});
+  }
+  if(d.closes && d.closes.length>30){
+    let p,why;
+    if(d.rangePos>85){p=+5;why=`Trading at ${d.rangePos.toFixed(0)}% of its 52-week range — near the high. Counterintuitively this earns points: stocks making new highs have no trapped sellers waiting to exit, which is why "buy high, sell higher" works for trend traders. The flip side: you're paying peak prices.`;}
+    else if(d.rangePos<15){p=-5;why=`Trading at ${d.rangePos.toFixed(0)}% of its 52-week range — near the low. Deducted because near-low stocks face overhead resistance: everyone who bought higher is waiting to "get out even", which caps rallies. It might be a bargain — but only if you know why it fell.`;}
+    else {p=0;why=`Trading at ${d.rangePos.toFixed(0)}% of its 52-week range — mid-range, neither at a peak nor a trough. No edge, no points.`;}
+    pts+=p; parts.push({pts:p,what:'52-week range position',why});
+  }
+  const score = Math.max(0, Math.min(100, 50+pts));
+  let label, cls, meaning;
+  if(score>=70){label='Bullish';cls='bull';meaning='Most indicators line up positive. A trend-follower would call this chart "buy/hold territory" — the trend is up and momentum supports it. The main risk: you are buying strength, and trends do eventually end.';}
+  else if(score>=55){label='Leaning bullish';cls='lean-b';meaning='More positives than negatives, but not a clean sweep — e.g. good trend with stretched momentum, or improving momentum without trend confirmation yet. Trend traders would call this "watch for confirmation".';}
+  else if(score>45){label='Neutral';cls='mid';meaning='The signals cancel out. Technically there is no edge here in either direction — which itself is information: this is when decisions should rest on the company\'s fundamentals, not the chart.';}
+  else if(score>=30){label='Leaning bearish';cls='lean-s';meaning='More negatives than positives. The chart says weakness, though not uniformly. Trend traders would avoid new buying here and watch existing positions closely.';}
+  else {label='Bearish';cls='bear';meaning='Most indicators line up negative: downtrend, weak momentum, near the lows. A trend-follower would call this "avoid / sell territory". Important: bearish charts can belong to good companies having a bad year — this score only sees the price.';}
+  return {score, pts, parts, label, cls, meaning};
+}
+
+/* ================= recommendation engine: short term vs long term ================= */
+function verdictOf(score){
+  if(score>=68) return {word:'BUY', cls:'v-buy', chip:'bull'};
+  if(score>=56) return {word:'LEAN BUY', cls:'v-lean-b', chip:'lean-b'};
+  if(score>44)  return {word:'HOLD', cls:'v-hold', chip:'mid'};
+  if(score>=33) return {word:'REDUCE', cls:'v-lean-s', chip:'lean-s'};
+  return {word:'SELL', cls:'v-sell', chip:'bear'};
+}
+
+function recoOf(d){
+  const f2=(n,dp=2)=>(n==null||isNaN(n))?'—':n.toLocaleString('en-US',{minimumFractionDigits:dp,maximumFractionDigits:dp});
+  /* ---------- SHORT TERM ---------- */
+  const st=[]; let stPts=0;
+  if(d.rsi!=null){
+    let p,w;
+    if(d.rsi>70){p=-15;w=`RSI is ${f2(d.rsi,0)}, above the 70 overbought line. Short-term buyers here are chasing a stretched move — pullbacks are statistically more likely than continued vertical gains in the next days/weeks.`;}
+    else if(d.rsi>=55){p=+12;w=`RSI is ${f2(d.rsi,0)}, in the 55–70 sweet spot: buyers are clearly in control but the move is not yet overheated. This is the best short-term momentum zone.`;}
+    else if(d.rsi>=45){p=0;w=`RSI is ${f2(d.rsi,0)} — dead-center. Neither buyers nor sellers have a short-term edge.`;}
+    else if(d.rsi>=30){p=-10;w=`RSI is ${f2(d.rsi,0)}, in the 30–45 weak zone: sellers currently dominate. Short-term entries against this usually need a catalyst.`;}
+    else {p=+8;w=`RSI is ${f2(d.rsi,0)}, below 30 = oversold. Bounce odds improve from washed-out levels — but this is the riskiest short-term signal; oversold can stay oversold.`;}
+    stPts+=p; st.push({pts:p, what:`RSI(14) = ${f2(d.rsi,0)}`, why:w});
+  }
+  if(d.sma20!=null){
+    const above=d.price>d.sma20, gap=(d.price/d.sma20-1)*100;
+    const p=above?+10:-10;
+    stPts+=p; st.push({pts:p, what:`Price vs 20-day avg (${f2(d.sma20)})`,
+      why: above
+      ? `Price ${f2(d.price)} is ${f2(gap,1)}% above its 20-day average — the last month of buyers is in profit, which supports short-term continuation.`
+      : `Price ${f2(d.price)} is ${f2(Math.abs(gap),1)}% below its 20-day average — most recent buyers are underwater, which creates short-term selling pressure on every bounce.`});
+  }
+  if(d.macdHist!=null){
+    const pos=d.macdHist>0;
+    const p=pos?+12:-12;
+    stPts+=p; st.push({pts:p, what:`MACD histogram = ${f2(d.macdHist,3)}`,
+      why: pos
+      ? `MACD line (${f2(d.macd,3)}) is above its signal line (${f2(d.macdSig,3)}). Short-term momentum is accelerating upward — the classic momentum-trader green light.`
+      : `MACD line (${f2(d.macd,3)}) is below its signal line (${f2(d.macdSig,3)}). Short-term momentum is rolling over — momentum traders read this as "stand aside or take profit".`});
+  }
+  if(d.r1m!=null){
+    let p,w;
+    if(d.r1m>8){p=+5;w=`Up ${f2(d.r1m,1)}% over the past month — strong recent demand. (Very large 1-month gains also raise pullback risk, which the RSI line accounts for.)`;}
+    else if(d.r1m>0){p=+4;w=`Up ${f2(d.r1m,1)}% over the past month — modest but positive short-term drift.`;}
+    else if(d.r1m>-8){p=-4;w=`Down ${f2(Math.abs(d.r1m),1)}% over the past month — mild short-term weakness.`;}
+    else {p=-8;w=`Down ${f2(Math.abs(d.r1m),1)}% over the past month — heavy recent selling; catching this knife short-term needs a clear reason.`;}
+    stPts+=p; st.push({pts:p, what:`1-month return = ${d.r1m>=0?'+':''}${f2(d.r1m,1)}%`, why:w});
+  }
+  if(d.volRatio!=null){
+    const p = d.volRatio>1.4 ? (d.chgPct>=0?+5:-5) : 0;
+    if(p!==0) stPts+=p;
+    st.push({pts:p, what:`Volume: 5-day avg is ${f2(d.volRatio,2)}× the 20-day avg`,
+      why: d.volRatio>1.4
+      ? (d.chgPct>=0
+        ? `Trading volume is running ${f2((d.volRatio-1)*100,0)}% above normal while price rises — heavy participation confirms the move is real, not a thin drift.`
+        : `Trading volume is running ${f2((d.volRatio-1)*100,0)}% above normal while price falls — heavy selling pressure; institutions may be exiting.`)
+      : `Volume is near its normal level (ratio ${f2(d.volRatio,2)}) — no unusual buying or selling rush either way, so no points.`});
+  }
+  const stScore=clamp01(50+stPts);
+
+  /* ---------- LONG TERM ---------- */
+  const lt=[]; let ltPts=0;
+  if(d.sma200!=null){
+    const above=d.price>d.sma200, gap=(d.price/d.sma200-1)*100;
+    const p=above?+20:-20;
+    ltPts+=p; lt.push({pts:p, what:`Price vs 200-day avg (${f2(d.sma200)})`,
+      why: above
+      ? `Price ${f2(d.price)} sits ${f2(gap,1)}% above its 200-day average — the textbook definition of a long-term uptrend. Historically, holding stocks on this side of the line has captured most of the market's gains while skipping the worst crashes.`
+      : `Price ${f2(d.price)} sits ${f2(Math.abs(gap),1)}% below its 200-day average — the textbook long-term downtrend. Downtrends persist more often than they reverse, so long-term buyers here are betting on a turnaround that hasn't started yet.`});
+  } else lt.push({pts:0, what:'Price vs 200-day avg', why:'Not enough history (needs ~200 trading days) — long-term trend cannot be judged yet.'});
+  if(d.sma50!=null && d.sma200!=null){
+    const golden=d.sma50>d.sma200;
+    const p=golden?+12:-12;
+    ltPts+=p; lt.push({pts:p, what:`50-day (${f2(d.sma50)}) vs 200-day (${f2(d.sma200)})`,
+      why: golden
+      ? `Golden-cross state: the 50-day average is above the 200-day, meaning the last ~2 months traded stronger than the long-term base. The medium-term trend confirms the long-term one.`
+      : `Death-cross state: the 50-day average is below the 200-day — recent months are weaker than the long-term base, a warning that the long trend may be deteriorating.`});
+  }
+  if(d.closes && d.closes.length>30){
+    let p,w;
+    if(d.rangePos>85){p=+6;w=`At ${f2(d.rangePos,0)}% of its 52-week range (${f2(d.lo)} – ${f2(d.hi)}), the stock is near its high. Stocks at new highs face no trapped sellers — historically a good long-term continuation signal, though you are paying peak prices.`;}
+    else if(d.rangePos>=50){p=+4;w=`At ${f2(d.rangePos,0)}% of its 52-week range — upper half. Holders are mostly in profit, which supports the trend.`;}
+    else if(d.rangePos>=15){p=-4;w=`At ${f2(d.rangePos,0)}% of its 52-week range — lower half. Many holders are underwater and may sell into rallies ("overhead resistance").`;}
+    else {p=-8;w=`At ${f2(d.rangePos,0)}% of its 52-week range — near the low. Either a genuine bargain or a falling business; the chart alone can't tell, so points are deducted for the risk.`;}
+    ltPts+=p; lt.push({pts:p, what:`52-week range position = ${f2(d.rangePos,0)}%`, why:w});
+  }
+  if(d.r1y!=null){
+    let p,w;
+    if(d.r1y>15){p=+8;w=`Up ${f2(d.r1y,1)}% over the past year — strong absolute performance. Winners tend to keep winning over 6–12 month horizons (the "momentum effect", one of the most documented patterns in finance).`;}
+    else if(d.r1y>0){p=+4;w=`Up ${f2(d.r1y,1)}% over the past year — positive but unspectacular long-term performance.`;}
+    else if(d.r1y>-15){p=-6;w=`Down ${f2(Math.abs(d.r1y),1)}% over the past year — a losing year. Long-term momentum studies show last year's losers tend to underperform over the next 6–12 months.`;}
+    else {p=-10;w=`Down ${f2(Math.abs(d.r1y),1)}% over the past year — heavy long-term losses. Something is broken: either the business, the sector, or the valuation. The chart says don't buy until that's understood.`;}
+    ltPts+=p; lt.push({pts:p, what:`1-year return = ${d.r1y>=0?'+':''}${f2(d.r1y,1)}%`, why:w});
+  }
+  if(d.cagr!=null && d.years>2.5){
+    let p,w;
+    if(d.cagr>12){p=+6;w=`Compounded ${f2(d.cagr,1)}%/year over the past ${f2(d.years,1)} years — a proven long-term wealth builder (the S&P 500's long-run average is ~10%/yr). Multi-year consistency is harder to fake than a hot quarter.`;}
+    else if(d.cagr>0){p=+2;w=`Compounded ${f2(d.cagr,1)}%/year over ${f2(d.years,1)} years — positive, but below what a simple index fund typically delivers (~10%/yr).`;}
+    else {p=-6;w=`Compounded ${f2(d.cagr,1)}%/year over ${f2(d.years,1)} years — money invested here has shrunk over a multi-year stretch. Long-term holders have not been rewarded.`;}
+    ltPts+=p; lt.push({pts:p, what:`${f2(d.years,1)}-year CAGR = ${d.cagr>=0?'+':''}${f2(d.cagr,1)}%/yr`, why:w});
+  }
+  if(d.yield>0){
+    const p = d.yield>=3?+5:+2;
+    ltPts+=p; lt.push({pts:p, what:`Dividend yield = ${f2(d.yield,2)}%`,
+      why: d.yield>=3
+      ? `Pays ${f2(d.div12)} per share/year (${f2(d.yield,2)}% yield). A 3%+ yield is real long-term compensation for holding — you get paid while waiting, and dividends historically supply a big share of total returns. (Check the payout is sustainable, not a "yield trap" from a crashed price.)`
+      : `Pays a modest ${f2(d.yield,2)}% yield — a small long-term cushion, slightly positive.`});
+  }
+  if(d.volAnnual!=null){
+    const p = d.volAnnual>55?-6:(d.volAnnual<25?+3:0);
+    if(p!==0) ltPts+=p;
+    lt.push({pts:p, what:`Annualised volatility = ${f2(d.volAnnual,0)}%`,
+      why: d.volAnnual>55
+      ? `Daily swings annualise to ${f2(d.volAnnual,0)}% — very turbulent. High volatility hurts long-term holders mathematically (a -50% drop needs +100% to recover) and emotionally (people sell at the bottom). Deducted as risk.`
+      : d.volAnnual<25
+      ? `Daily swings annualise to only ${f2(d.volAnnual,0)}% — a calm ride. Low-volatility stocks have historically delivered comparable returns with smaller drawdowns, which is exactly what long-term holders want.`
+      : `Volatility of ${f2(d.volAnnual,0)}% is in the normal range for equities — neither a bonus nor a penalty.`});
+  }
+  const ltScore=clamp01(50+ltPts);
+
+  /* ---------- DAYS (1–10 trading days — for quick traders only) ---------- */
+  const dd=[]; let ddPts=0;
+  const c=d.closes||[];
+  if(d.macdHist!=null){
+    const p=d.macdHist>0?+10:-10;
+    ddPts+=p; dd.push({pts:p, what:`MACD histogram = ${f2(d.macdHist,3)}`,
+      why: d.macdHist>0
+      ? `Momentum is accelerating upward right now — over the next few sessions, moves tend to continue in the direction the MACD engine is pushing.`
+      : `Momentum is rolling over right now — the next few sessions face a headwind; quick trades against this usually need news to work.`});
+  }
+  if(d.rsi!=null){
+    let p,w;
+    if(d.rsi>75){p=-15;w=`RSI ${f2(d.rsi,0)} is extremely hot (>75). Over a days-horizon this is the worst entry statistically — snap-backs punish late chasers.`;}
+    else if(d.rsi>70){p=-8;w=`RSI ${f2(d.rsi,0)} is above 70 — stretched for the next few days, even if the bigger trend is fine.`;}
+    else if(d.rsi>=55){p=+10;w=`RSI ${f2(d.rsi,0)} shows buyers in control without overheating — the friendliest zone for a quick continuation trade.`;}
+    else if(d.rsi>=45){p=0;w=`RSI ${f2(d.rsi,0)} — coin-flip territory for the next few days.`;}
+    else if(d.rsi>=33){p=-8;w=`RSI ${f2(d.rsi,0)} — sellers dominate the tape right now; days-horizon bounces are fighting the current.`;}
+    else {p=+12;w=`RSI ${f2(d.rsi,0)} is washed-out (<33). Over just days, heavily-sold stocks snap back more often than not — the classic quick "bounce" setup. Highest risk signal here: it can keep falling.`;}
+    ddPts+=p; dd.push({pts:p, what:`RSI(14) = ${f2(d.rsi,0)}`, why:w});
+  }
+  const sma10 = c.length>=10 ? c.slice(-10).reduce((a,b)=>a+b,0)/10 : null;
+  if(sma10!=null){
+    const gap=(d.price/sma10-1)*100, p=d.price>sma10?+8:-8;
+    ddPts+=p; dd.push({pts:p, what:`Price vs 10-day avg (${f2(sma10)})`,
+      why:`Price is ${f2(Math.abs(gap),1)}% ${gap>=0?'above':'below'} its 10-day average — the very-short-term trend ${gap>=0?'supports':'opposes'} the next few sessions.`});
+  }
+  if(d.sma20!=null){
+    const gap20=(d.price/d.sma20-1)*100;
+    if(Math.abs(gap20)>7){
+      const p=gap20>0?-6:+6;
+      ddPts+=p; dd.push({pts:p, what:`Stretch: ${f2(gap20,1)}% from 20-day avg`,
+        why: gap20>0
+        ? `Price is unusually far ABOVE its 20-day average. Like a stretched rubber band, days-horizon odds favour a snap back toward ${f2(d.sma20)} — not a great moment to enter for a quick trade.`
+        : `Price is unusually far BELOW its 20-day average — the rubber band is stretched down, which slightly favours a relief bounce toward ${f2(d.sma20)} in the coming days.`});
+    }
+  }
+  if(d.volRatio!=null && d.volRatio>1.4){
+    const p=d.chgPct>=0?+5:-5;
+    ddPts+=p; dd.push({pts:p, what:`Volume ${f2(d.volRatio,2)}× normal`,
+      why:`Heavy participation while price ${d.chgPct>=0?'rises — real buying pressure behind the move':'falls — real selling pressure; days-horizon bounces get sold into'}.`});
+  }
+  const ddScore=clamp01(50+ddPts);
+
+  /* ---------- YEARS (3–5+ years — the wealth-building view) ---------- */
+  const yr=[]; let yrPts=0;
+  if(d.years>=2.5 && c.length>300){
+    if(d.cagr!=null){
+      let p,w;
+      if(d.cagr>=15){p=+18;w=`This stock compounded ${f2(d.cagr,1)}% per year over ${f2(d.years,1)} years — well above the S&P 500's ~10%/yr long-run average. A multi-year record like this is the single strongest "wealth-builder" signal a chart can give.`;}
+      else if(d.cagr>=8){p=+10;w=`Compounded ${f2(d.cagr,1)}%/yr over ${f2(d.years,1)} years — solid, in line with what good long-term equity holdings deliver.`;}
+      else if(d.cagr>0){p=+2;w=`Compounded only ${f2(d.cagr,1)}%/yr over ${f2(d.years,1)} years — positive, but a simple index fund likely did better. As a years-long holding, it must offer something the index doesn't (income, diversification, a thesis).`;}
+      else {p=-15;w=`Money invested here ${f2(d.years,1)} years ago has SHRUNK (${f2(d.cagr,1)}%/yr). Whatever the story, the multi-year market verdict so far is negative — long-term holders have not been paid for their patience.`;}
+      yrPts+=p; yr.push({pts:p, what:`${f2(d.years,1)}-year CAGR = ${d.cagr>=0?'+':''}${f2(d.cagr,1)}%/yr`, why:w});
+    }
+    if(d.maxDD!=null){
+      let p,w;
+      if(d.maxDD<=-60){p=-10;w=`Its worst fall in this period was ${f2(d.maxDD,0)}%. Could you genuinely sit through losing ${f2(Math.abs(d.maxDD),0)}% of this position without selling? History says most people can't — and selling at the bottom is how long-term plans die.`;}
+      else if(d.maxDD<=-40){p=-4;w=`Worst fall: ${f2(d.maxDD,0)}% — a heavy but survivable drawdown, typical of growth stocks. Size the position so this number wouldn't break you.`;}
+      else if(d.maxDD>=-25){p=+6;w=`Worst fall in the whole period was only ${f2(d.maxDD,0)}% — an unusually smooth ride, which makes it much easier to actually hold for years.`;}
+      else {p=0;w=`Worst fall: ${f2(d.maxDD,0)}% — normal equity turbulence.`;}
+      yrPts+=p; yr.push({pts:p, what:`Max drawdown = ${f2(d.maxDD,0)}%`, why:w});
+    }
+    {
+      const s200=smaSeries(c,200);
+      let above=0,n=0;
+      for(let i=0;i<c.length;i++) if(s200[i]!=null){ n++; if(c[i]>s200[i]) above++; }
+      if(n>100){
+        const frac=above/n*100;
+        const p=frac>=70?+10:frac>=50?+4:frac<30?-8:0;
+        yrPts+=p; yr.push({pts:p, what:`In an uptrend ${f2(frac,0)}% of the time`,
+          why:`Across the full ${f2(d.years,1)} years, the price spent ${f2(frac,0)}% of days above its 200-day average. ${frac>=70?'That is a persistent, high-quality trend — the kind that rewards simply holding.':frac>=50?'Trend quality is decent but interrupted — expect to sit through dead periods.':frac<30?'It has spent most of its life in downtrends — historically a poor base for a years-long hold.':'Roughly half-and-half — a cyclical chart, not a steady compounder.'}`});
+      }
+    }
+    if(d.volAnnual!=null){
+      const p=d.volAnnual>55?-6:d.volAnnual<25?+5:0;
+      if(p!==0) yrPts+=p;
+      yr.push({pts:p, what:`Volatility ${f2(d.volAnnual,0)}%/yr`,
+        why: d.volAnnual>55?`Violently volatile. Over years, the math of big swings (-50% needs +100% back) and the emotional toll both work against you.`
+        : d.volAnnual<25?`A calm ride — low-volatility holdings are historically the easiest to actually keep for years.`
+        : `Normal equity volatility — neither bonus nor penalty.`});
+    }
+    if(d.yield>0){
+      const p=d.yield>=3?+6:+2;
+      yrPts+=p; yr.push({pts:p, what:`Dividend yield ${f2(d.yield,2)}%`,
+        why: d.yield>=3?`Pays you ${f2(d.yield,1)}% a year while you wait. Over a years-long horizon, reinvested dividends typically contribute a large share of the total return.`:`A small income stream sweetens the long hold slightly.`});
+    }
+    if(d.cagr!=null && d.r1y!=null){
+      if(d.cagr>0 && d.r1y<-15){ yrPts+=-4; yr.push({pts:-4, what:`Last 12 months broke the pattern (${f2(d.r1y,1)}%)`,
+        why:`The multi-year record is good but the recent year fell hard — before committing for years, understand what changed (business problem vs. market mood).`}); }
+      else if(d.cagr>0 && d.r1y>0){ yrPts+=+4; yr.push({pts:+4, what:`Recent year confirms the long record (+${f2(d.r1y,1)}%)`,
+        why:`The last 12 months continued the multi-year pattern — no visible break in the story.`}); }
+    }
+  } else {
+    yr.push({pts:0, what:'Not enough history', why:`Only ${f2(d.years,1)} years of data loaded — a years-horizon verdict needs at least ~3 years to mean anything. Score stays neutral.`});
+  }
+  const yrScore=clamp01(50+yrPts);
+
+  return { d1:{score:ddScore, pts:ddPts, parts:dd, v:verdictOf(ddScore)},
+           st:{score:stScore, pts:stPts, parts:st, v:verdictOf(stScore)},
+           lt:{score:ltScore, pts:ltPts, parts:lt, v:verdictOf(ltScore)},
+           yr:{score:yrScore, pts:yrPts, parts:yr, v:verdictOf(yrScore)} };
+}
+
+/* horizon metadata used everywhere the four verdicts are shown */
+const HORIZONS=[
+  {key:'d1', icon:'⚡', name:'Days',   span:'1–10 trading days', who:'quick trades'},
+  {key:'st', icon:'📅', name:'Weeks',  span:'2–8 weeks',         who:'swing trades'},
+  {key:'lt', icon:'📈', name:'Months', span:'6–18 months',       who:'investing'},
+  {key:'yr', icon:'🏛', name:'Years',  span:'3–5+ years',        who:'wealth building'}
+];
+
+/* ================= trade plan: concrete entry / stop / target / size ================= */
+function tradePlanOf(d){
+  if(!d || d.manual || !d.atr || !d.sma20 || d.closes.length<60) return null;
+  const uptrend = d.sma200!=null ? d.price>d.sma200 : d.price>d.sma50;
+  const zoneAvg = uptrend ? d.sma20 : d.sma50;
+  const zoneName = uptrend ? '20-day average' : '50-day average';
+  const entry = d.price<=zoneAvg ? d.price : zoneAvg;
+  const entryNote = d.price<=zoneAvg
+    ? `Price (${entry.toFixed(2)}) is already at/below the ${zoneName} — no need to wait for a pullback; the "discount" is here.`
+    : `Current price ${d.price.toFixed(2)} is above the ${zoneName} (${zoneAvg.toFixed(2)}). Patient entry = wait for a normal pullback to that average instead of chasing. (Trend traders accept they may miss the move.)`;
+  const swingLow = Math.min(...d.lows.slice(-20));
+  const stopAtr = entry - 2*d.atr;
+  const stop = Math.min(swingLow*0.995, stopAtr);
+  const stopNote = `The wider of: 2× ATR below entry (${stopAtr.toFixed(2)}) or just under the lowest low of the past 20 days (${swingLow.toFixed(2)}). ATR is the stock's normal daily wobble (${d.atr.toFixed(2)} = ${(d.atr/d.price*100).toFixed(1)}%/day) — a stop inside the normal wobble gets hit by noise, not by being wrong.`;
+  const riskPS = entry - stop;
+  if(riskPS<=0) return null;
+  const target = d.hi>entry*1.02 ? d.hi : entry + 2*riskPS;
+  const targetNote = d.hi>entry*1.02
+    ? `The 52-week high (${d.hi.toFixed(2)}) — the natural magnet/resistance where previous buyers broke even or took profit.`
+    : `Price is already near its high, so the target is set at 2× your risk (entry + ${(2*riskPS).toFixed(2)}) — the minimum reward that makes the risk worth taking.`;
+  const rr = (target-entry)/riskPS;
+  return { uptrend, entry, entryNote, stop, stopNote, target, targetNote, rr, riskPS,
+    riskPct:(riskPS/entry)*100, atr:d.atr };
+}
+
+/* ================= backtest: does the 200-day rule work on THIS stock? ================= */
+function backtestOf(d){
+  if(!d || d.manual || !d.closes || d.closes.length<280) return null;
+  const c=d.closes, t=d.times;
+  const s200=smaSeries(c,200);
+  let eqS=1, eqB=1, flips=0, inMkt=false, daysIn=0;
+  let peakS=1, ddS=0, peakB=1, ddB=0;
+  const sig=[];
+  for(let i=200;i<c.length;i++){
+    const want = c[i-1]>s200[i-1];
+    if(want!==inMkt){ flips++; sig.push({i:i-1, dir:want?'in':'out'}); inMkt=want; }
+    const r=c[i]/c[i-1];
+    if(inMkt){ eqS*=r; daysIn++; }
+    eqB*=r;
+    if(eqS>peakS)peakS=eqS; ddS=Math.min(ddS, eqS/peakS-1);
+    if(eqB>peakB)peakB=eqB; ddB=Math.min(ddB, eqB/peakB-1);
+  }
+  const yrs=(t[c.length-1]-t[200])/(365.25*86400);
+  return { stratRet:(eqS-1)*100, bhRet:(eqB-1)*100,
+    stratCagr: yrs>0.8?(Math.pow(eqS,1/yrs)-1)*100:null,
+    bhCagr: yrs>0.8?(Math.pow(eqB,1/yrs)-1)*100:null,
+    ddS:ddS*100, ddB:ddB*100, flips, timeIn:daysIn/(c.length-200)*100, yrs, sig };
+}
+
+/* ================= market mood: transparent fear & greed ================= */
+const MKT_SYMS=['SPY','^VIX','TLT','HYG'];
+function moodLabel(s){
+  if(s<25) return {word:'Extreme fear', col:'var(--down)'};
+  if(s<45) return {word:'Fear', col:'#EFAFAF'};
+  if(s<=55) return {word:'Neutral', col:'var(--gold)'};
+  if(s<75) return {word:'Greed', col:'#9BD8B4'};
+  return {word:'Extreme greed', col:'var(--up)'};
+}
+function computeMood(){
+  const M=state.mkt;
+  const spy=M['SPY'], vix=M['^VIX'], tlt=M['TLT'], hyg=M['HYG'];
+  if(!spy||!spy.closes||spy.closes.length<130) return null;
+  const f1=(x)=>x==null?'—':x.toFixed(1);
+  const comps=[];
+  const r20=(x)=>(x&&x.closes.length>21)?(x.price/x.closes[x.closes.length-22]-1)*100:null;
+  /* 1 — momentum */
+  const s125=sma(spy.closes,125);
+  if(s125){
+    const gap=(spy.price/s125-1)*100;
+    comps.push({name:'Market momentum', score:clamp01(50+gap*5),
+      val:`S&P 500 (SPY) ${spy.price.toFixed(0)} vs its 125-day average ${s125.toFixed(0)} → ${gap>=0?'+':''}${f1(gap)}%`,
+      why:`When the index trades well above its 125-day average, investors are confidently bidding prices up (greed). Below it, they're backing away (fear). Right now the S&P is ${f1(Math.abs(gap))}% ${gap>=0?'above — risk appetite is positive':'below — caution is in charge'}.`});
+  }
+  /* 2 — volatility (VIX) */
+  if(vix && vix.closes.length>55){
+    const v50=sma(vix.closes,50);
+    const rel=(vix.price/v50-1)*100;
+    const sAbs=clamp01(100-(vix.price-10)*(80/30));
+    const sRel=clamp01(50-rel*2);
+    comps.push({name:'Volatility (VIX)', score:(sAbs+sRel)/2,
+      val:`VIX ${vix.price.toFixed(1)} vs its 50-day average ${v50.toFixed(1)} (${rel>=0?'+':''}${f1(rel)}%)`,
+      why:`The VIX is the market's "insurance price" — what investors pay to protect portfolios. Low VIX (≈12–15) = nobody fears a crash (greed/complacency). Above ~30 = panic insurance buying (fear). At ${vix.price.toFixed(1)}, ${vix.price<15?'protection is cheap — the crowd sees no danger (which is itself worth noticing)':vix.price>30?'investors are paying up heavily for protection — classic fear':'insurance costs are in the normal band'}.`});
+  }
+  /* 3 — safe haven demand */
+  const dSafe = (r20(spy)!=null && r20(tlt)!=null) ? r20(spy)-r20(tlt) : null;
+  if(dSafe!=null){
+    comps.push({name:'Stocks vs safe bonds', score:clamp01(50+dSafe*4),
+      val:`Last 20 trading days: stocks (SPY) ${r20(spy)>=0?'+':''}${f1(r20(spy))}% vs 20-year Treasuries (TLT) ${r20(tlt)>=0?'+':''}${f1(r20(tlt))}%`,
+      why:`When investors are brave, money flows out of safe government bonds into stocks; when scared, the reverse. Stocks have ${dSafe>=0?'out':'under'}performed safe bonds by ${f1(Math.abs(dSafe))}% this month — ${dSafe>=0?'risk-taking is winning (greed side)':'money is hiding in safety (fear side)'}.`});
+  }
+  /* 4 — junk bond demand */
+  const dJunk = (r20(hyg)!=null && r20(tlt)!=null) ? r20(hyg)-r20(tlt) : null;
+  if(dJunk!=null){
+    comps.push({name:'Junk bond demand', score:clamp01(50+dJunk*6),
+      val:`Last 20 trading days: high-yield "junk" bonds (HYG) ${r20(hyg)>=0?'+':''}${f1(r20(hyg))}% vs safe Treasuries (TLT) ${r20(tlt)>=0?'+':''}${f1(r20(tlt))}%`,
+      why:`Junk bonds are loans to risky companies. When investors happily buy them, they're reaching for yield and ignoring risk (greed). When junk sells off vs safe bonds, credit fear is rising — often an early warning, because bond investors tend to smell trouble before stock investors do.`});
+  }
+  /* 5 — S&P momentum oscillator */
+  if(spy.rsi!=null){
+    comps.push({name:'S&P 500 RSI', score:clamp01((spy.rsi-30)*2.5),
+      val:`14-day RSI of SPY = ${spy.rsi.toFixed(0)}`,
+      why:`The same RSI used on your stocks, applied to the whole market. Above 70 the market itself is overbought (euphoric buying); below 30 it's oversold (capitulation selling). ${spy.rsi>70?'The market is running hot.':spy.rsi<30?'The market is being dumped indiscriminately — historically where bargains appear.':'Currently mid-range.'}`});
+  }
+  if(!comps.length) return null;
+  const score=comps.reduce((a,c)=>a+c.score,0)/comps.length;
+  return {score, comps, label:moodLabel(score)};
+}
+/* ================= quick-add directory ================= */
+const DIRECTORY = [
+ {cat:'🇹🇭 Thailand (SET) — priced in THB', items:[
+   ['SCB.BK','SCB X (bank)'],['KBANK.BK','Kasikornbank'],['PTT.BK','PTT (energy)'],['AOT.BK','Airports of Thailand'],
+   ['CPALL.BK','CP All (7-Eleven)'],['DELTA.BK','Delta Electronics'],['ADVANC.BK','AIS (telecom)'],['GULF.BK','Gulf Energy'],
+   ['BDMS.BK','Bangkok Dusit Medical'],['LHSC.BK','LH Shopping Centers REIT'],['BRRGIF.BK','Buriram Sugar Fund'],['SCC.BK','Siam Cement']]},
+ {cat:'🇺🇸 US tech & growth', items:[
+   ['AAPL','Apple'],['MSFT','Microsoft'],['AMZN','Amazon'],['META','Meta'],['TSLA','Tesla'],['AMD','AMD'],
+   ['IONQ','IonQ (quantum)'],['UBER','Uber'],['PLTR','Palantir'],['TSM','Taiwan Semi (US listing)']]},
+ {cat:'💰 Income / covered-call ETFs', items:[
+   ['SCHD','Schwab Dividend'],['JEPI','JPM Equity Premium'],['JEPQ','JPM Nasdaq Premium'],['QQQI','Neos Nasdaq Income'],
+   ['QYLD','Nasdaq Covered Call'],['XYLD','S&P Covered Call'],['VYM','Vanguard High Div']]},
+ {cat:'🌍 Broad market ETFs', items:[
+   ['VOO','S&P 500'],['QQQ','Nasdaq 100'],['VTI','Total US Market'],['VT','Total World'],
+   ['VXUS','World ex-US'],['VEA','Developed Markets'],['VWO','Emerging Markets']]},
+ {cat:'🌏 Asia', items:[
+   ['7203.T','Toyota (Tokyo)'],['6758.T','Sony (Tokyo)'],['9984.T','SoftBank (Tokyo)'],
+   ['0700.HK','Tencent (HK)'],['9988.HK','Alibaba (HK)'],['005930.KS','Samsung (Korea)'],['D05.SI','DBS (Singapore)']]},
+ {cat:'🇪🇺 Europe', items:[
+   ['ASML','ASML (US listing)'],['MC.PA','LVMH (Paris)'],['SAP','SAP (US listing)'],
+   ['NESN.SW','Nestlé (Swiss)'],['SHEL.L','Shell (London, in pence!)'],['SIE.DE','Siemens (Germany)']]}
+];
+
+/* ================= your real portfolio =================
+   Holdings are loaded from portfolio-seed.js (gitignored — stays on your computer only),
+   so the PUBLISHED copy of this file contains no personal positions. On the public host
+   the seed is absent and the app simply starts with the default watchlist. */
+const MY_PORTFOLIO = (typeof window!=='undefined' && window.MY_PORTFOLIO_SEED)
+  ? window.MY_PORTFOLIO_SEED
+  : { asOf:'', cashTHB:0, cashUSD:0, dime:[], webull:[], untracked:[] };
+function loadMyPortfolio(){
+  const all=new Set(state.tickers);
+  for(const [s,,,g] of MY_PORTFOLIO.dime){ all.add(s); state.groups[s]=g; }
+  for(const [s,,,g] of MY_PORTFOLIO.webull){ all.add(s); if(!state.groups[s]) state.groups[s]=g; }
+  state.tickers=[...all];
+  state.pendingPortfolio=true;
+  state.portLoaded=true;
+  saveState();
+}
+/* the report's headline exchange rate — used as a fallback so holdings can be derived
+   even before (or if) the live FX rate loads. ("1 USD = 32.91-32.93 THB" in the report) */
+const REPORT_THB_PER_USD = 32.92;
+/* convert a THB amount into a stock's own currency, using live FX if present else the report rate.
+   The portfolio is only USD/THB stocks, so this never returns null → derivation never stalls. */
+function thbToStockCur(thb, toCur){
+  if(toCur==='THB') return thb;
+  const thbToUsd = (state.fx['THB'] && state.fx['THB'].rate) || (1/REPORT_THB_PER_USD);
+  const usd = thb*thbToUsd;
+  if(toCur==='USD') return usd;
+  const toUsd = fxRateToUSD(toCur);
+  return toUsd ? usd/toUsd : usd;
+}
+/* turn the report's THB values + P/L% into shares + avg cost.
+   force=true overwrites everything (the "Reload from report" button); otherwise it only
+   FILLS IN holdings that are missing, so it never clobbers numbers you typed yourself. */
+function derivePortfolioHoldings(force){
+  if(!force && !state.pendingPortfolio && !state.portLoaded) return;
+  const wb={};
+  for(const [s,q,c] of MY_PORTFOLIO.webull){ wb[s]=wb[s]||[]; wb[s].push({q,c}); }
+  const syms=new Set([...MY_PORTFOLIO.dime.map(x=>x[0]), ...Object.keys(wb)]);
+  let unresolved=0, set=0;
+  for(const s of syms){
+    /* once the import has fully settled, never clobber a holding you typed yourself */
+    if(!force && !state.pendingPortfolio && state.holdings[s] && state.holdings[s].shares>0) continue;
+    const d=state.data[s];
+    let shares=0, cost=0;
+    const dimeEnt=MY_PORTFOLIO.dime.find(x=>x[0]===s);
+    if(dimeEnt){
+      if(d && d.price){
+        const [,thb,pl]=dimeEnt;
+        const valCur = thbToStockCur(thb, d.currency);
+        const sh=valCur/d.price, cps=d.price/(1+pl/100);
+        shares+=sh; cost+=sh*cps;
+      } else unresolved++;   /* price not in yet — try again next refresh */
+    }
+    /* Webull lots carry exact shares & cost — always applied, no FX needed */
+    for(const lot of (wb[s]||[])){ shares+=lot.q; cost+=lot.q*lot.c; }
+    if(shares>0){ state.holdings[s]={shares:+shares.toFixed(6), cost:+(cost/shares).toFixed(4)}; set++; }
+  }
+  state.portLoaded=true;
+  const fxLive=!!(state.fx['THB'] && state.fx['THB'].rate);
+  /* stay "pending" until prices are all in AND the accurate live rate has refined the shares */
+  if(unresolved===0 && fxLive) state.pendingPortfolio=false;
+  if(set) saveState();
+}
+
+/* ================= state + persistence ================= */
+const LS_KEY='longview-v2';
+const CACHE_KEY='longview-cache-v1';
+const FULL_TTL = 20*60*60*1000;   /* refetch full 5y history after 20h; lighter quote updates in between */
+let state = {
+  tickers:['GEV','VT','VTI','NANC','GOOGL','NVDA','TRIN'],
+  data:{}, status:{}, notes:{}, holdings:{}, alerts:{}, groups:{}, sel:null,
+  sortKey:null, sortDir:1, range:'1Y', autoTimer:null,
+  news:{}, newsSel:null, tab:'dash', groupFilter:'',
+  baseCur:'USD', riskPct:2, accountSize:0, notify:false, notified:{},
+  lastVerdicts:{}, briefDismissed:'', mkt:{}, fx:{},
+  portLoaded:false, pendingPortfolio:false, ideas:{at:0, list:null, loading:false}
+};
+
+function saveState(){
+  try{
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      tickers:state.tickers, notes:state.notes, holdings:state.holdings,
+      alerts:state.alerts, groups:state.groups, sel:state.sel, range:state.range,
+      sortKey:state.sortKey, sortDir:state.sortDir, tab:state.tab, groupFilter:state.groupFilter,
+      baseCur:state.baseCur, riskPct:state.riskPct, accountSize:state.accountSize,
+      notify:state.notify, lastVerdicts:state.lastVerdicts, briefDismissed:state.briefDismissed,
+      portLoaded:state.portLoaded, pendingPortfolio:state.pendingPortfolio
+    }));
+    const b=document.getElementById('savebadge');
+    if(b) b.textContent='💾 saved '+new Date().toLocaleTimeString();
+  }catch(e){}
+}
+function loadState(){
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(!raw) return;
+    const j=JSON.parse(raw);
+    if(Array.isArray(j.tickers)&&j.tickers.length) state.tickers=j.tickers;
+    state.notes=j.notes||{}; state.holdings=j.holdings||{}; state.alerts=j.alerts||{}; state.groups=j.groups||{};
+    if(j.sel) state.sel=j.sel;
+    if(j.range) state.range=j.range;
+    if(j.sortKey!==undefined) state.sortKey=j.sortKey;
+    if(j.sortDir) state.sortDir=j.sortDir;
+    if(j.tab) state.tab=(j.tab==='dash'?'watch':j.tab);
+    state.groupFilter=j.groupFilter||'';
+    if(j.baseCur) state.baseCur=j.baseCur;
+    if(j.riskPct) state.riskPct=j.riskPct;
+    if(j.accountSize) state.accountSize=j.accountSize;
+    state.notify=!!j.notify;
+    state.lastVerdicts=j.lastVerdicts||{};
+    state.briefDismissed=j.briefDismissed||'';
+    state.portLoaded=!!j.portLoaded;
+    state.pendingPortfolio=!!j.pendingPortfolio;
+  }catch(e){}
+}
+
+/* price-history cache: the page works instantly from saved data, then refreshes in the background.
+   This is also the "couldn't fetch" fix — a relay hiccup now shows slightly old data instead of an error. */
+function saveCache(){
+  try{
+    const tk={};
+    const keep=new Set([...state.tickers, ...MKT_SYMS]);
+    for(const s of keep){
+      const d = state.data[s] || state.mkt[s];
+      if(d && !d.manual && d.closes && d.closes.length) tk[s]={at:(d.histAt||d.fetchedAt||Date.now()), d};
+    }
+    localStorage.setItem(CACHE_KEY, JSON.stringify({tk, fx:state.fx}));
+  }catch(e){ /* quota exceeded → just skip caching */ }
+}
+function loadCache(){
+  try{
+    const raw=localStorage.getItem(CACHE_KEY);
+    if(!raw) return;
+    const j=JSON.parse(raw);
+    for(const s in (j.tk||{})){
+      const ent=j.tk[s];
+      if(!ent||!ent.d) continue;
+      ent.d.histAt=ent.at; ent.d.stale=true;
+      if(MKT_SYMS.includes(s)) state.mkt[s]=ent.d;
+      if(state.tickers.includes(s)){ state.data[s]=ent.d; state.status[s]='ok'; }
+    }
+    state.fx=j.fx||{};
+  }catch(e){}
+}
+
+const CUR = {USD:'$',THB:'฿',JPY:'¥',HKD:'HK$',EUR:'€',GBP:'£',GBp:'p ',KRW:'₩',CHF:'CHF ',SGD:'S$',TWD:'NT$'};
+const csym = c => CUR[c]||c+' ';
+const fmt = (n,dp=2)=> (n==null||isNaN(n))?'—':n.toLocaleString('en-US',{minimumFractionDigits:dp,maximumFractionDigits:dp});
+const cls = n => n>=0?'u':'d';
+const sign = n => (n>=0?'+':'')+fmt(n);
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function alertHit(t){
+  const a=state.alerts[t], d=state.data[t];
+  if(!a||!d) return null;
+  if(a.above && d.price>=a.above) return 'above';
+  if(a.below && d.price<=a.below) return 'below';
+  return null;
+}
+
+/* ---------- FX: convert any currency to the chosen base ---------- */
+function fxRateToUSD(c){
+  if(c==='USD') return 1;
+  if(c==='GBp'){ const r=state.fx['GBP']; return r?r.rate/100:null; }
+  const r=state.fx[c]; return r?r.rate:null;
+}
+function convert(amount, from, to){
+  const a=fxRateToUSD(from), b=fxRateToUSD(to||state.baseCur);
+  if(a==null||b==null) return null;
+  return amount*a/b;
+}
+function neededCurrencies(){
+  const set=new Set();
+  for(const t of state.tickers){
+    const d=state.data[t], h=state.holdings[t];
+    if(d&&h&&h.shares>0) set.add(d.currency==='GBp'?'GBP':d.currency);
+  }
+  if(state.baseCur!=='USD') set.add(state.baseCur);
+  /* the report's Dime values are in THB — derivation always needs the THB rate */
+  if(state.pendingPortfolio || state.portLoaded) set.add('THB');
+  set.delete('USD');
+  return [...set];
+}
+async function ensureFx(){
+  const need=neededCurrencies().filter(c=>{
+    const r=state.fx[c];
+    return !r || Date.now()-r.at > 6*60*60*1000;
+  });
+  if(!need.length) return;
+  await pool(need, 2, async c=>{
+    const r=await fetchChart(c+'USD=X','5d');
+    if(r.ok && r.res.meta && r.res.meta.regularMarketPrice!=null)
+      state.fx[c]={rate:r.res.meta.regularMarketPrice, at:Date.now()};
+  });
+  saveCache();
+}
+
+/* ================= news ================= */
+async function loadNews(sym, force){
+  const cached=state.news[sym];
+  if(!force && cached && Date.now()-cached.at < 10*60*1000){ renderNews(); return; }
+  state.news[sym]={at:Date.now(), loading:true, items:cached?cached.items:[]};
+  renderNews();
+  let items=[];
+  const j=await fetchJsonViaRelay(`${Y_HOSTS[0]}/v1/finance/search?q=${encodeURIComponent(sym)}&quotesCount=0&newsCount=12`, 9000);
+  if(j && Array.isArray(j.news)){
+    items=j.news.map(n=>({title:n.title, link:n.link, pub:n.providerPublishTime?n.providerPublishTime*1000:null, src:n.publisher||''}))
+      .filter(x=>x.title && x.link);
+  }
+  state.news[sym]={at:Date.now(), loading:false, items, failed:!items.length};
+  renderNews();
+}
+function newsAge(ts){
+  if(!ts) return '';
+  const h=(Date.now()-ts)/3.6e6;
+  if(h<1) return Math.max(1,Math.round(h*60))+' min ago';
+  if(h<48) return Math.round(h)+' h ago';
+  return Math.round(h/24)+' days ago';
+}
+function renderNews(){
+  const tabs=document.getElementById('newsTabs');
+  tabs.innerHTML=state.tickers.map(t=>`<button class="btn sm ${state.newsSel===t?'on':''}" onclick="pickNews('${t}')">${t}</button>`).join('')
+    + (state.newsSel?` <button class="btn sm" onclick="loadNews('${state.newsSel}',true)" title="reload headlines">↻</button>`:'');
+  const el=document.getElementById('news');
+  const t=state.newsSel;
+  if(!t){ el.innerHTML='<div class="loading">Select a stock or pick a ticker above to load its news.</div>'; return; }
+  const n=state.news[t];
+  if(!n || n.loading){ el.innerHTML='<div class="loading">Loading headlines for '+esc(t)+'…</div>'; return; }
+  if(n.failed && !n.items.length){ el.innerHTML='<div class="loading errtxt">Couldn\'t fetch news for '+esc(t)+' right now (free relays hiccup sometimes). <button class="btn sm" onclick="loadNews(\''+t+'\',true)">Retry</button></div>'; return; }
+  if(!n.items.length){ el.innerHTML='<div class="loading">No recent headlines found for '+esc(t)+'.</div>'; return; }
+  el.innerHTML=n.items.map(it=>`<div class="news-item">
+    <a href="${esc(it.link)}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a>
+    <div class="meta">${it.src?esc(it.src)+' · ':''}${esc(newsAge(it.pub))}${it.pub?' · '+esc(new Date(it.pub).toLocaleString()):''}</div></div>`).join('')
+    + `<div class="meta" style="font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px">Headlines: Yahoo Finance · read the article before acting on it — news moves prices before trackers update.</div>`;
+}
+function pickNews(t){ state.newsSel=t; renderNews(); loadNews(t); }
+/* ================= rendering: dashboard ================= */
+function setStatus(msg, bad){ const el=document.getElementById('status'); el.textContent=msg||''; el.style.color = bad?'var(--down)':'var(--dim)'; }
+
+function renderTape(){
+  const mood=computeMood();
+  let items = mood ? `<span>Market mood: <b style="color:${mood.label.col}">${Math.round(mood.score)} ${mood.label.word}</b></span>` : '';
+  items += state.tickers.map(t=>{const d=state.data[t]; if(!d)return'';
+    return `<span class="sym">${t}</span><span class="${cls(d.chg)}">${csym(d.currency)}${fmt(d.price)} ${sign(d.chgPct)}%</span>`;}).join('');
+  document.getElementById('tape').innerHTML = items ? items+items : 'Longview — no quotes loaded yet';
+}
+
+function renderSummary(){
+  const by={};
+  for(const t of state.tickers){
+    const h=state.holdings[t], d=state.data[t];
+    if(h&&d&&h.shares>0){
+      const c=d.currency;
+      by[c]=by[c]||{val:0,cost:0,inc:0,day:0};
+      by[c].val+=h.shares*d.price; by[c].cost+=h.shares*h.cost; by[c].inc+=h.shares*(d.div12||0); by[c].day+=h.shares*d.chg;
+    }
+  }
+  const curs=Object.keys(by);
+  /* if FX rates are loaded, also show one unified number */
+  let uniVal=0, uniOk=curs.length>0;
+  for(const c of curs){ const v=convert(by[c].val, c); if(v==null){uniOk=false;break;} uniVal+=v; }
+  const plStr = curs.length?curs.map(c=>{const p=by[c].val-by[c].cost;return `<span class="${cls(p)}">${sign(p).replace('+','+'+csym(c)).replace('-','-'+csym(c))}${by[c].cost>0?` (${sign(p/by[c].cost*100)}%)`:''}</span>`;}).join('<br>'):'—';
+  const dayStr = curs.length?curs.map(c=>`<span class="${cls(by[c].day)}">${sign(by[c].day).replace('+','+'+csym(c)).replace('-','-'+csym(c))}</span>`).join('<br>'):'—';
+  const triggered = state.tickers.filter(t=>alertHit(t)).length;
+  document.getElementById('summary').innerHTML = `
+    <div class="stat"><div class="lbl">Portfolio value</div><div class="val">${curs.length?curs.map(c=>csym(c)+fmt(by[c].val)).join('<br>'):'—'}${uniOk&&curs.length>1?`<div style="font-size:12px;color:var(--gold)">= ${csym(state.baseCur)}${fmt(uniVal)}</div>`:''}</div></div>
+    <div class="stat"><div class="lbl">Total P/L</div><div class="val">${plStr}</div></div>
+    <div class="stat"><div class="lbl">Today's P/L</div><div class="val">${dayStr}</div></div>
+    <div class="stat"><div class="lbl">Est. annual dividends</div><div class="val" style="color:var(--gold)">${curs.length?curs.filter(c=>by[c].inc>0).map(c=>csym(c)+fmt(by[c].inc)).join('<br>')||'—':'—'}</div></div>
+    <div class="stat"><div class="lbl">Tickers / alerts hit</div><div class="val">${state.tickers.length} / <span class="${triggered?'d':''}">${triggered} 🔔</span></div></div>`;
+}
+
+const COLS=[['sym','Ticker'],['price','Price'],['chgPct','Day %'],['r1m','1M %'],['yield','Yield'],['rsi','RSI'],['sig','Signals D·W·M·Y']];
+const COLS_HELD=[['sym','Ticker'],['price','Price'],['chgPct','Day %'],['val','Value'],['plp','P/L %'],['wgt','Weight'],['sig','Signals D·W·M·Y']];
+
+/* four compact letter-chips: Days, Weeks, Months, Years — hover any letter for the verdict */
+function miniChips(d){
+  const r=recoOf(d);
+  return [['D',r.d1,'Days (1–10 days, quick trades)'],['W',r.st,'Weeks (2–8 weeks, swing trades)'],
+          ['M',r.lt,'Months (6–18 months, investing)'],['Y',r.yr,'Years (3–5+ yrs, wealth building)']]
+    .map(([L,h,tip])=>`<span class="chip mini ${h.v.chip}" title="${tip}: ${h.v.word} — score ${h.score}/100. Click the row for the full explanation.">${L}</span>`).join('');
+}
+
+function heldVal(t){ const h=state.holdings[t], d=state.data[t]; if(!h||!d) return null; return convert(h.shares*d.price, d.currency); }
+function heldPlPct(t){ const h=state.holdings[t], d=state.data[t]; if(!h||!d||!h.cost) return null; return (d.price/h.cost-1)*100; }
+
+function sortedTickers(){
+  const wantHeld = state.tab==='held';
+  let arr=state.tickers.filter(t=>isHeld(t)===wantHeld);
+  if(state.groupFilter) arr=arr.filter(t=>(state.groups[t]||'')===state.groupFilter);
+  if(!state.sortKey) return arr;
+  const k=state.sortKey, dir=state.sortDir;
+  return arr.sort((a,b)=>{
+    const da=state.data[a], db=state.data[b];
+    if(!da&&!db)return 0; if(!da)return 1; if(!db)return -1;
+    let va,vb;
+    if(k==='sym'){va=a;vb=b;return va<vb?-dir:va>vb?dir:0;}
+    if(k==='sig'){const ra=recoOf(da),rb=recoOf(db);va=(ra.d1.score+ra.st.score+ra.lt.score+ra.yr.score)/4;vb=(rb.d1.score+rb.st.score+rb.lt.score+rb.yr.score)/4;}
+    else if(k==='stq'){va=recoOf(da).st.score;vb=recoOf(db).st.score;}
+    else if(k==='ltq'){va=recoOf(da).lt.score;vb=recoOf(db).lt.score;}
+    else if(k==='val'){va=heldVal(a)??-Infinity;vb=heldVal(b)??-Infinity;}
+    else if(k==='plp'||k==='wgt'){va=heldPlPct(a)??-Infinity;vb=heldPlPct(b)??-Infinity; if(k==='wgt'){va=heldVal(a)??-Infinity;vb=heldVal(b)??-Infinity;}}
+    else {va=da[k]??-Infinity;vb=db[k]??-Infinity;}
+    return (va-vb)*dir;
+  });
+}
+function setSort(k){
+  if(state.sortKey===k) state.sortDir*=-1; else {state.sortKey=k;state.sortDir=-1;}
+  saveState(); renderWatchlist();
+}
+function setGroupFilter(g){ state.groupFilter=g; saveState(); renderWatchlist(); }
+
+function renderGroupFilter(){
+  const el=document.getElementById('gfilter');
+  const gs=[...new Set(Object.values(state.groups).filter(Boolean))];
+  if(!gs.length){ el.innerHTML=''; return; }
+  el.innerHTML = `<button class="btn sm ${!state.groupFilter?'on':''}" onclick="setGroupFilter('')">All</button>`
+    + gs.map(g=>`<button class="btn sm ${state.groupFilter===g?'on':''}" onclick="setGroupFilter('${esc(g)}')">${esc(g)}</button>`).join('');
+}
+
+function renderWatchlist(){
+  renderGroupFilter();
+  const heldMode = state.tab==='held';
+  /* total value of all holdings → weight column */
+  let totV=0;
+  if(heldMode) for(const t of state.tickers){ if(isHeld(t)){ const v=heldVal(t); if(v!=null) totV+=v; } }
+  const title=document.querySelector('#wl').closest('.card').querySelector('h2');
+  if(title) title.innerHTML = heldMode
+    ? `💹 Your holdings <span style="font-weight:400;text-transform:none;letter-spacing:0">— what you own, with your P/L. Click a row for full analysis</span>`
+    : `📌 Watchlist <span style="font-weight:400;text-transform:none;letter-spacing:0">— stocks you're eyeing but don't own. Enter shares in a stock's Details and it moves to Holdings</span>`;
+  let rows='';
+  for(const t of sortedTickers()){
+    const d=state.data[t], st=state.status[t];
+    if(!d){
+      let cell;
+      if(st==='loading') cell = `<td colspan="7" class="loading" style="padding:9px 8px">fetching…</td>`;
+      else if(st==='notfound') cell = `<td colspan="7"><span class="errtxt">ticker not found — check symbol &amp; suffix (Thai stocks need .BK)</span></td>`;
+      else cell = `<td colspan="7"><span class="errtxt">couldn't fetch</span>&nbsp;
+            <button class="btn sm" onclick="event.stopPropagation();retry('${t}')">Retry</button>
+            <button class="btn sm" onclick="event.stopPropagation();manualRow('${t}')">Enter price manually</button>
+            <span id="man-${t}"></span></td>`;
+      rows+=`<tr><td class="sym">${t}</td>${cell}<td><button class="btn sm" onclick="event.stopPropagation();removeTicker('${t}')">✕</button></td></tr>`;
+      continue;
+    }
+    const rc=recoOf(d);
+    const hit=alertHit(t);
+    const staleMark = d.stale ? ` <span class="stale" title="couldn't update just now — showing saved data from ${new Date(d.fetchedAt||d.histAt||0).toLocaleString()}. It will retry automatically.">⏱</span>` : '';
+    rows+=`<tr class="${state.sel===t?'sel':''}" onclick="select('${t}')">
+      <td class="sym">${t}${d.manual?' <span style="color:var(--dim);font-size:10px">(manual)</span>':''}${staleMark}${hit?` <span class="bell ${hit==='above'?'u':'d'}" title="price alert triggered">🔔</span>`:''}</td>
+      <td>${csym(d.currency)}${fmt(d.price)}</td>
+      <td class="${cls(d.chgPct)}">${sign(d.chgPct)}%</td>
+      <td>${sparkSVG(d)}</td>
+      ${heldMode
+        ? (()=>{ const v=heldVal(t), pp=heldPlPct(t), w=(v!=null&&totV>0)?v/totV*100:null;
+            return `<td>${v!=null?csym(state.baseCur)+fmt(v):'—'}</td>
+      <td class="${pp!=null?cls(pp):''}">${pp!=null?sign(pp)+'%':'—'}</td>
+      <td>${w!=null?fmt(w,1)+'%':'—'}</td>`; })()
+        : `<td class="${d.r1m!=null?cls(d.r1m):''}">${d.r1m!=null?sign(d.r1m)+'%':'—'}</td>
+      <td>${d.yield>0?fmt(d.yield,1)+'%':'—'}</td>
+      <td>${d.rsi!=null?fmt(d.rsi,0):'—'}</td>`}
+      <td style="white-space:nowrap">${miniChips(d)}</td>
+      <td><button class="btn sm" onclick="event.stopPropagation();removeTicker('${t}')">✕</button></td></tr>`;
+  }
+  const head=(heldMode?COLS_HELD:COLS).map(c=>{
+    const h=`<th onclick="setSort('${c[0]}')">${c[1]}${state.sortKey===c[0]?(state.sortDir<0?' ↓':' ↑'):''}</th>`;
+    return c[0]==='chgPct' ? h+`<th style="cursor:default" title="last 30 days at a glance">30d</th>` : h;
+  }).join('');
+  if(!rows){
+    rows = heldMode
+      ? `<tr><td colspan="9" class="loading">No holdings showing yet.<br><button class="btn gold" style="margin:8px 0" onclick="forceLoadPortfolio()">📥 Load my 38 holdings from the 11 June report</button><br>…or enter Shares + Avg cost manually in any stock's Details panel.</td></tr>`
+      : `<tr><td colspan="9" class="loading">Your watchlist is empty — everything you own lives in the 💹 Holdings tab now.<br>Add a ticker above, pick from Quick add below, or hit 💡 Scan ideas — stocks you add (but don't own) appear here.</td></tr>`;
+  }
+  document.getElementById('wl').innerHTML = `<table><thead><tr>${head}<th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function sparkSVG(d){
+  if(!d.closes||d.closes.length<5) return '—';
+  const c=d.closes.slice(-22);
+  const min=Math.min(...c), rng=(Math.max(...c)-min)||1;
+  const pts=c.map((v,i)=>`${(i/(c.length-1)*60).toFixed(1)},${(16-(v-min)/rng*14).toFixed(1)}`).join(' ');
+  const col=c[c.length-1]>=c[0]?'var(--up)':'var(--down)';
+  return `<svg viewBox="0 0 60 18" style="width:60px;height:18px;display:inline-block;vertical-align:middle"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5"/></svg>`;
+}
+
+function renderDirectory(){
+  const have=new Set(state.tickers);
+  document.getElementById('dir').innerHTML = DIRECTORY.map(g=>`
+    <div class="dir-cat"><div class="cat-name">${g.cat}</div>
+    ${g.items.map(([s,n])=>`<span class="pick ${have.has(s)?'have':''}" title="${esc(n)}" onclick="quickAdd('${s}')">${s} · ${esc(n)}</span>`).join('')}</div>`).join('')
+  + `<div class="suffix-help"><b>Any other stock in the world:</b> type its Yahoo Finance symbol in the Add box. Country suffixes:
+  .BK Thailand · .T Tokyo · .HK Hong Kong · .KS Korea · .SI Singapore · .PA Paris · .DE Germany · .SW Switzerland · .L London (London prices are in <b>pence</b>, ÷100 for pounds) · .AX Australia · no suffix = US.</div>`;
+}
+
+function rangeSlice(d){
+  const days={'1M':22,'3M':66,'6M':132,'1Y':252,'5Y':99999}[state.range]||252;
+  const n=Math.min(d.closes.length, days);
+  return d.closes.slice(d.closes.length-n);
+}
+
+/* hover context per chart: lets the crosshair show exact date + price under the mouse */
+const CHART_CTX={};
+function chartMove(evt, id){
+  const ctx=CHART_CTX[id]; if(!ctx) return;
+  const svg=evt.currentTarget, rect=svg.getBoundingClientRect();
+  const frac=Math.max(0, Math.min(1, (evt.clientX-rect.left)/rect.width));
+  const i=Math.round(frac*(ctx.n-1));
+  const x=ctx.pad + i/(ctx.n-1)*(ctx.w-2*ctx.pad);
+  const ln=document.getElementById('chx-'+id);
+  if(ln){ ln.setAttribute('x1',x); ln.setAttribute('x2',x); ln.setAttribute('opacity','0.6'); }
+  ctx.series.forEach((s,si)=>{
+    const dot=document.getElementById(`chd-${id}-${si}`);
+    if(dot && s.vals[i]!=null){
+      dot.setAttribute('cx',x);
+      dot.setAttribute('cy', ctx.h-ctx.pad-(s.vals[i]-ctx.min)/ctx.rng*(ctx.h-2*ctx.pad));
+      dot.setAttribute('opacity','1');
+    }
+  });
+  const tip=document.getElementById('ctip-'+id);
+  if(tip){
+    const dt=ctx.t[i]?new Date(ctx.t[i]*1000).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}):'';
+    tip.innerHTML=`<div class="cd">${dt}</div>`+ctx.series.map(s=>`${s.name}: <b>${s.cur||''}${fmt(s.vals[i])}</b>`).join('<br>');
+    tip.style.display='block';
+    const leftPct=frac*100;
+    if(leftPct>58){ tip.style.left='auto'; tip.style.right=(100-leftPct+3)+'%'; }
+    else { tip.style.right='auto'; tip.style.left=(leftPct+3)+'%'; }
+  }
+}
+function chartLeave(id){
+  const tip=document.getElementById('ctip-'+id); if(tip) tip.style.display='none';
+  const ln=document.getElementById('chx-'+id); if(ln) ln.setAttribute('opacity','0');
+  (CHART_CTX[id]?CHART_CTX[id].series:[]).forEach((_,si)=>{ const d2=document.getElementById(`chd-${id}-${si}`); if(d2) d2.setAttribute('opacity','0'); });
+}
+
+function chartSVG(d){
+  const w=560,h=170,pad=4;
+  if(!d.closes||d.closes.length<2) return '<div class="loading">No chart data (manual price entry).</div>';
+  const c=rangeSlice(d);
+  const off=d.closes.length-c.length;
+  const times=d.times.slice(off);
+  const s50=smaSeries(d.closes,50).slice(off), s200=smaSeries(d.closes,200).slice(off);
+  const all=c.concat(s50.filter(v=>v!=null),s200.filter(v=>v!=null));
+  const min=Math.min(...all),max=Math.max(...all),rng=max-min||1;
+  const X=i=>(pad+i/(c.length-1)*(w-2*pad)).toFixed(1);
+  const Y=v=>(h-pad-(v-min)/rng*(h-2*pad)).toFixed(1);
+  const line=(arr,col,wd,dash)=>{
+    const pts=arr.map((v,i)=>v==null?null:`${X(i)},${Y(v)}`).filter(Boolean).join(' ');
+    return pts?`<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="${wd}" ${dash?`stroke-dasharray="${dash}"`:''}/>`:'';
+  };
+  const up=c[c.length-1]>=c[0];
+  const col=up?'var(--up)':'var(--down)';
+  const main=c.map((v,i)=>`${X(i)},${Y(v)}`).join(' ');
+  /* backtest in/out markers (200-day rule crossings) that fall inside the visible slice */
+  let marks='';
+  const bt=backtestOf(d);
+  if(bt && bt.sig.length){
+    const vis=bt.sig.filter(s=>s.i>=off).slice(-40);
+    marks=vis.map(s=>{
+      const x=+X(s.i-off), y=+Y(c[s.i-off]);
+      return s.dir==='in'
+        ? `<polygon points="${x-5},${y+11} ${x+5},${y+11} ${x},${y+3}" fill="var(--up)"><title>200-day rule: price crossed ABOVE its 200-day average here (trend turned up)</title></polygon>`
+        : `<polygon points="${x-5},${y-11} ${x+5},${y-11} ${x},${y-3}" fill="var(--down)"><title>200-day rule: price crossed BELOW its 200-day average here (trend turned down)</title></polygon>`;
+    }).join('');
+  }
+  /* your average cost as a reference line, when you own it and it fits the visible range */
+  let costLine='';
+  const hold=state.holdings[d.sym];
+  if(hold && hold.shares>0 && hold.cost>min && hold.cost<max){
+    costLine=`<line x1="${pad}" x2="${w-pad}" y1="${Y(hold.cost)}" y2="${Y(hold.cost)}" stroke="var(--text)" stroke-width="1" stroke-dasharray="2,5" opacity="0.55"/>
+    <text x="${w-pad-2}" y="${+Y(hold.cost)-4}" text-anchor="end" fill="var(--text)" opacity="0.7" font-size="10" font-family="IBM Plex Mono">your avg cost ${fmt(hold.cost)}</text>`;
+  }
+  const id='dtl';
+  CHART_CTX[id]={n:c.length, w, h, pad, min, rng, t:times,
+    series:[{name:'price', vals:c, cur:csym(d.currency)}]};
+  return `<div class="chartwrap">
+  <svg viewBox="0 0 ${w} ${h}" role="img" aria-label="price chart with moving averages" onmousemove="chartMove(event,'${id}')" onmouseleave="chartLeave('${id}')">
+    <polygon points="${pad},${h-pad} ${main} ${X(c.length-1)},${h-pad}" fill="${col}" opacity="0.07"/>
+    ${line(s200,'var(--gold)',1.5,'5,4')}
+    ${line(s50,'#7FB8C9',1.5,'2,3')}
+    <polyline points="${main}" fill="none" stroke="${col}" stroke-width="2"/>
+    ${costLine}
+    ${marks}
+    <line id="chx-${id}" x1="0" x2="0" y1="${pad}" y2="${h-pad}" stroke="var(--text)" stroke-width="1" opacity="0"/>
+    <circle id="chd-${id}-0" r="3.5" fill="${col}" stroke="var(--bg)" stroke-width="1.5" opacity="0"/>
+  </svg>
+  <div class="ctip" id="ctip-${id}"></div></div>
+  <div class="legend"><span><i style="background:${col}"></i>price</span><span><i style="background:#7FB8C9"></i>50-day avg</span><span><i style="background:var(--gold)"></i>200-day avg</span><span>▲▼ trend flips</span>${hold&&hold.shares>0?'<span>┄ your cost</span>':''}<span style="margin-left:auto">range: ${fmt(Math.min(...c))} – ${fmt(Math.max(...c))}</span></div>`;
+}
+
+function renderDetail(){
+  const t=state.sel, el=document.getElementById('detail');
+  if(!t||!state.data[t]){ el.innerHTML='<h2>Details</h2><div class="loading">Select a stock from the watchlist.</div>'; return; }
+  const d=state.data[t], h=state.holdings[t]||{shares:0,cost:0}, a=state.alerts[t]||{};
+  const sc=scoreOf(d);
+  const scoreRows=sc.parts.map(p=>`<div class="srow"><div class="what"><b>${p.what}</b><div class="why">${p.why}</div></div><div class="pts ${p.pts>0?'u':p.pts<0?'d':''}">${p.pts>0?'+':''}${p.pts}</div></div>`).join('');
+  const barCol = sc.score>=55?'var(--up)':sc.score<=45?'var(--down)':'var(--dim)';
+  let pl='';
+  if(h.shares>0){
+    const v=h.shares*d.price, c=h.shares*h.cost, p=v-c, cs=csym(d.currency);
+    pl=`<div class="pl">Value: <b>${cs}${fmt(v)}</b> · Cost: ${cs}${fmt(c)}<br>P/L: <b class="${cls(p)}">${sign(p)} (${sign(c>0?p/c*100:0)}%)</b>${d.div12>0?`<br>Est. dividends/yr: <span style="color:var(--gold)">${cs}${fmt(h.shares*d.div12)}</span> <span style="color:var(--dim)">(yield on your cost: ${h.cost>0?fmt(d.div12/h.cost*100,2):'—'}%)</span>`:''}</div>`;
+  }
+  const gauge = (d.closes&&d.closes.length>1)?`<div class="gauge"><div class="bar"><div class="pin" style="left:calc(${fmt(d.rangePos,1)}% - 2px)"></div></div>
+  <div class="lbls"><span>52w low ${fmt(d.lo)}</span><span>now: ${fmt(d.rangePos,0)}% of range · ${fmt((d.price/d.hi-1)*100,1)}% from high</span><span>52w high ${fmt(d.hi)}</span></div></div>`:'';
+  const bm=betaVsMarket(d, state.mkt['SPY']);
+  const mcell=(k,v,c,tip)=>`<div class="mcell" ${tip?`title="${esc(tip)}"`:''}><div class="k">${k}</div><div class="v ${c||''}">${v}</div></div>`;
+  const metrics=`<div class="mgrid">
+    ${mcell('1 month', d.r1m!=null?sign(d.r1m)+'%':'—', d.r1m!=null?cls(d.r1m):'')}
+    ${mcell('6 months', d.r6m!=null?sign(d.r6m)+'%':'—', d.r6m!=null?cls(d.r6m):'')}
+    ${mcell('1 year', d.r1y!=null?sign(d.r1y)+'%':'—', d.r1y!=null?cls(d.r1y):'')}
+    ${mcell(fmt(d.years,1)+'y total', d.rAll!=null?sign(d.rAll)+'%':'—', d.rAll!=null?cls(d.rAll):'', 'total return over all loaded history')}
+    ${mcell('CAGR', d.cagr!=null?sign(d.cagr)+'%/yr':'—', d.cagr!=null?cls(d.cagr):'', 'compound annual growth rate — what the stock earned per year on average over the loaded history')}
+    ${mcell('Max drawdown', d.maxDD!=null?fmt(d.maxDD,0)+'%':'—', 'd', 'worst peak-to-bottom fall in the loaded history — the pain a holder had to sit through')}
+    ${mcell('RSI (14d)', d.rsi!=null?fmt(d.rsi,0):'—')}
+    ${mcell('MACD hist', d.macdHist!=null?fmt(d.macdHist,3):'—', d.macdHist!=null?cls(d.macdHist):'')}
+    ${mcell('Volatility/yr', d.volAnnual!=null?fmt(d.volAnnual,0)+'%':'—', '', 'how big this stock\'s yearly swings are — equities average roughly 15–30%')}
+    ${mcell('ATR (day move)', d.atr!=null?fmt(d.atr)+' ('+fmt(d.atr/d.price*100,1)+'%)':'—', '', 'Average True Range — the stock\'s normal daily wobble; used to place stop-losses outside the noise')}
+    ${mcell('Beta vs S&P', bm?fmt(bm.beta,2):'—', '', 'how hard this stock moves when the S&P 500 moves 1% — beta 2 ≈ twice the market\'s swings')}
+    ${mcell('Vol. vs normal', d.volRatio!=null?fmt(d.volRatio,2)+'×':'—')}
+  </div>`;
+  const yieldRow = d.yield>0?`<div class="ind"><div class="row"><span>Dividend yield (trailing 12m)</span><b>${fmt(d.yield,2)}%</b></div><div class="why">Paid ${csym(d.currency)}${fmt(d.div12)} per share over the last 12 months. Yield = payout ÷ current price, so a crashing price makes yield look "better" — always check whether the payout itself is stable.</div></div>`:'';
+  const hit=alertHit(t);
+  el.innerHTML=`<h2>Details
+    <span style="float:right;display:flex;gap:6px">
+      <button class="btn sm" onclick="loadOne('${t}')" title="re-download fresh data for this stock only">↻</button>
+      <button class="btn sm" onclick="copySummary('${t}')" title="copy a text summary (price, all 4 signals, trade plan) to paste anywhere">📋 Copy</button>
+    </span></h2>
+  <div class="dtl-head"><div><span class="px">${csym(d.currency)}${fmt(d.price)}</span> <span style="color:var(--dim);font-size:12px">${esc(d.currency)}</span><div style="font-size:12px;color:var(--dim)">${esc(d.name)}${d.stale?' · <span class="stale">⏱ saved data</span>':''}</div></div>
+  <div class="chg ${cls(d.chg)}">${sign(d.chg)} (${sign(d.chgPct)}%) today</div></div>
+  <div class="ranges">${['1M','3M','6M','1Y','5Y'].map(r=>`<button class="btn sm ${state.range===r?'on':''}" onclick="setRange('${r}')">${r}</button>`).join('')}</div>
+  ${chartSVG(d)}
+  ${gauge}
+  ${metrics}
+
+  <div class="scorebox">
+    <div class="head"><div><span class="chip ${sc.cls}" style="font-size:12px">${sc.label}</span></div><div class="big">${sc.score}<span style="font-size:12px;color:var(--dim)">/100</span></div></div>
+    <div class="sbar"><i style="width:${sc.score}%;background:${barCol}"></i></div>
+    <div style="font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:4px">${sc.meaning}</div>
+    <div style="font-size:11px;color:var(--dim);margin:8px 0 2px;text-transform:uppercase;letter-spacing:1px">How the points add up (start at 50, neutral)</div>
+    ${scoreRows}
+    <div class="srow"><div class="what"><b>Total</b><div class="why">50 base ${sc.pts>=0?'+':''}${sc.pts} points = ${sc.score}. Scores ≥70 read Bullish, 55–69 Leaning bullish, 46–54 Neutral, 30–45 Leaning bearish, &lt;30 Bearish.</div></div><div class="pts">${sc.score}</div></div>
+  </div>
+  ${yieldRow}
+
+  <div class="ind"><div class="row"><span>Price alerts ${hit?`<span class="${hit==='above'?'u':'d'}">🔔 triggered (${hit} target)</span>`:''}</span></div>
+  <div class="why">Get a 🔔 badge (and a desktop notification if you enable 🔔 Notify in the header) when price crosses your levels — e.g. set "below" at the price where you'd want to look at buying, "above" where you'd review taking profit.</div>
+  <div class="hold">
+    <div><label>Alert above</label><input type="number" step="any" min="0" value="${a.above||''}" id="aa" placeholder="e.g. take-profit"></div>
+    <div><label>Alert below</label><input type="number" step="any" min="0" value="${a.below||''}" id="ab" placeholder="e.g. buy zone"></div>
+    <button class="btn gold" onclick="saveAlert('${t}')">Save</button>
+  </div></div>
+
+  <div class="ind"><div class="row"><span>Your holding</span></div>
+  <div class="hold">
+    <div><label>Shares</label><input type="number" step="any" min="0" value="${h.shares||''}" id="hs" placeholder="0"></div>
+    <div><label>Avg cost / share</label><input type="number" step="any" min="0" value="${h.cost||''}" id="hc" placeholder="0.00"></div>
+    <button class="btn gold" onclick="saveHolding('${t}')">Save</button>
+  </div>
+  <div class="hold" style="grid-template-columns:1fr auto">
+    <div><label>Group (optional — e.g. Income, Growth, Thai)</label><input id="hg" value="${esc(state.groups[t]||'')}" list="grouplist" placeholder="none"><datalist id="grouplist">${[...new Set(Object.values(state.groups).filter(Boolean))].map(g=>`<option value="${esc(g)}">`).join('')}</datalist></div>
+    <button class="btn" onclick="saveGroup('${t}')">Save</button>
+  </div>${pl}</div>
+
+  ${(!d.manual && d.cagr!=null) ? `<div class="ind"><div class="row"><span>💭 What if I invest…</span></div>
+  <div class="why">A quick reality-check: type an amount to see what it buys and what it would have become at this stock's own ${fmt(d.years,1)}-year pace (${sign(d.cagr,1)}%/yr). The past never guarantees the future — this shows the trajectory you'd be betting on.</div>
+  <div class="hold">
+    <div><label>Amount (${esc(d.currency)})</label><input type="number" step="any" min="0" id="wi-amt" placeholder="e.g. 1000"></div>
+    <div></div>
+    <button class="btn gold" onclick="calcWhatIf('${t}')">Calculate</button>
+  </div><div class="pl" id="wi-out"></div></div>` : ''}
+
+  <div class="ind"><div class="row"><span>Notes</span></div>
+  <textarea id="nt" placeholder="Why you're watching ${t}, your target price, thesis…">${esc(state.notes[t]||'')}</textarea>
+  <button class="btn" style="margin-top:6px" onclick="saveNote('${t}')">Save note</button></div>
+
+  <div class="focus-msg">Why "Bullish" still isn't "buy": this score only reads the <b>price chart</b>. It can't see earnings, debt, dividends being cut, lawsuits, or whether the stock is expensive relative to profits. Technical signals work as probabilities across many stocks over time — any single stock can ignore them completely. Use the score as one input, alongside what the business actually does. Not financial advice.</div>`;
+}
+/* ================= rendering: recommendation + trade plan + backtest ================= */
+function recoColHTML(horizon, r){
+  const facts=r.parts.map(p=>`<div class="reco-fact"><div class="fp ${p.pts>0?'u':p.pts<0?'d':''}">${p.pts>0?'+':''}${p.pts}</div><div class="ft"><b>${p.what}</b><div class="fw">${p.why}</div></div></div>`).join('');
+  const barCol = r.score>=56?'var(--up)':r.score<=44?'var(--down)':'var(--gold)';
+  return `<div class="reco-col">
+    <div class="verdict"><div><div class="horizon">${horizon}</div><div class="word ${r.v.cls}">${r.v.word}</div></div><div class="scnum">${r.score}/100</div></div>
+    <div class="sbar"><i style="width:${r.score}%;background:${barCol}"></i></div>
+    ${facts}
+  </div>`;
+}
+
+/* what each verdict means IN ACTION TERMS, for each horizon */
+function actionFor(key, word){
+  const buyish=word==='BUY'||word==='LEAN BUY', sellish=word==='SELL'||word==='REDUCE';
+  if(key==='d1') return buyish
+    ? `Only matters if you trade actively: the next few sessions have the wind at their back. This is <b>not</b> a reason to buy for the long term.`
+    : sellish ? `For quick traders: stand aside or take profit — the coming sessions face a headwind. Long-term holders can ignore this line entirely.`
+    : `No edge for the next few days — very-short trades here are coin flips.`;
+  if(key==='st') return buyish
+    ? `Swing-trade horizon: momentum favors entries over the coming weeks. If you planned to buy anyway, the timing is on your side.`
+    : sellish ? `Over the coming weeks the tape is against you: not the moment to start a new position — and if you trade swings, this is where you'd lighten up.`
+    : `The next few weeks have no clear direction — patience costs nothing here.`;
+  if(key==='lt') return buyish
+    ? `The investing horizon: the medium-term trend is up. Historically, owning stocks in this state has been the higher-probability play over the next 6–18 months.`
+    : sellish ? `The medium-term trend is down, and downtrends persist more often than they reverse. For investors this means: don't start buying yet, and if you own it, demand a reason beyond the chart.`
+    : `Trend-neutral for the investing horizon — your decision should rest on the business, not the chart.`;
+  return buyish
+    ? `The wealth-building verdict: the multi-year record (compounding, trend persistence, survivable falls) supports holding this for years.`
+    : sellish ? `The multi-year record argues against a years-long hold — money parked here has not been rewarded across timeframes. A years-horizon buy needs a fundamental story the chart can't see.`
+    : `The multi-year picture is mixed or too short — neither a proven compounder nor a proven loser yet.`;
+}
+
+/* ownership-aware bottom line: "so what do I actually do?" */
+function guideHTML(t, d, r){
+  const owned=isHeld(t), h=state.holdings[t]||{};
+  const W=r.st.score, M=r.lt.score, Y=r.yr.score;
+  let line;
+  if(owned){
+    if(M>=56&&Y>=56) line = W<=44
+      ? `<b class="v-buy">Keep holding.</b> The investing horizons back this position (Months ${M}, Years ${Y}), and the current Weeks weakness (${W}) reads as a pullback inside an uptrend — historically the moment to <b>add in small steps</b>, not to sell.`
+      : `<b class="v-buy">Keep holding — nothing to do.</b> Months (${M}) and Years (${Y}) support the position and short-term momentum isn't fighting it. Useful action today: check your position size and the stop level in the Trade plan below.`;
+    else if(M<=44&&Y<=44) line=`<b class="v-sell">Decide deliberately: trim, exit, or consciously re-commit.</b> Both investing horizons are negative (Months ${M}, Years ${Y}) — the market has disagreed with this position across timeframes. Either re-confirm WHY you own it (fundamentals, not hope), or reduce it and redeploy. Set a hard stop either way.`;
+    else line=`<b class="v-hold">Hold, but don't add.</b> The horizons disagree (Months ${M} vs Years ${Y}). Mixed evidence isn't a sell signal — it's a "wait until it resolves" signal. A below-alert at your pain price keeps the decision honest.`;
+  } else {
+    if(M>=56&&Y>=56) line = W>=56
+      ? `<b class="v-buy">If you want to own it, the chart supports buying now.</b> All horizons align (Weeks ${W} · Months ${M} · Years ${Y}). Even so: buy in 2–3 parts rather than all at once, and take your entry, stop and position size from the Trade plan below — that's what turns a verdict into a plan.`
+      : `<b class="v-lean-b">Attractive, but falling right now.</b> The investing case is there (Months ${M}, Years ${Y}) while Weeks (${W}) is weak. Two sensible plays: buy in small parts on the way down (DCA), or set a below-alert and wait for the Weeks signal to recover above ~50 as confirmation.`;
+    else if(M<=44) line=`<b class="v-sell">Don't buy yet.</b> The Months trend (${M}) is against you, and "cheap" can keep getting cheaper. If you like the company, set a below-alert at a price you'd love and let the trend turn first — you'll miss the exact bottom and that's fine.`;
+    else line=`<b class="v-hold">No rush.</b> The signals are mixed — nothing here pushes you to act today. If the business interests you, spend the time on fundamentals (earnings, valuation, news above) while the chart sorts itself out.`;
+  }
+  const LEG=[
+    ['BUY','bull','the chart strongly favors this horizon','own it: hold / add per your plan · don\'t: a technically supported entry'],
+    ['LEAN BUY','lean-b','favorable, but not a clean sweep','own it: hold · don\'t: small starter position, or wait for confirmation'],
+    ['HOLD','mid','no edge either way','own it: keep, don\'t add · don\'t: the chart gives no reason to enter'],
+    ['REDUCE','lean-s','more negative than positive','own it: consider trimming, tighten stops · don\'t: stay away'],
+    ['SELL','bear','the chart clearly argues against','own it: make an exit plan / hard stop now · don\'t: avoid']
+  ];
+  return `<div class="reco-summary" style="border-left-color:${owned?'var(--up)':'var(--gold)'}">
+    <b>🧭 What should I do? ${owned?`<span style="font-weight:400;color:var(--dim)">(you own ${fmt(h.shares,h.shares%1?4:0)} shares @ avg ${fmt(h.cost)})</span>`:`<span style="font-weight:400;color:var(--dim)">(you don't own this one)</span>`}</b><br>${line}
+    <div style="margin-top:9px;font-size:12px;color:var(--dim);line-height:1.6">Remember: each verdict reads the chart for <b>one time horizon</b> — it's information, not a command. Match it to your intention: trading days or weeks → ⚡/📅; investing → 📈; holding for years → 🏛. When they disagree, the longer horizon describes the trend, the shorter one describes the timing.</div>
+    <details style="margin-top:8px"><summary style="cursor:pointer;color:var(--gold);font-size:12px;font-weight:600">📖 Dictionary: what each word asks you to do</summary>
+      ${LEG.map(l=>`<div style="display:flex;gap:10px;align-items:baseline;padding:6px 0;border-top:1px dashed var(--line);font-size:12px"><span class="chip ${l[1]}" style="flex:none">${l[0]}</span><span style="line-height:1.5"><b>${l[2]}.</b> <span style="color:var(--dim)">${l[3]}.</span></span></div>`).join('')}
+    </details>
+    <div style="margin-top:8px;font-size:11px;color:var(--dim)">All of this reads only the price chart + dividends — never earnings, valuation or tomorrow's news. Not financial advice.</div>
+  </div>`;
+}
+
+function renderReco(){
+  const cardEl=document.getElementById('recoCard'), whyEl=document.getElementById('recoWhy');
+  const t=state.sel;
+  if(!t||!state.data[t]){
+    cardEl.innerHTML='<h2>🎯 Recommendation — short term vs long term</h2><div class="loading">Select a stock from the watchlist to see Buy / Hold / Sell readings for both horizons.</div>';
+    whyEl.innerHTML='<h2>🧠 Why buy or sell — the full reasoning, value by value</h2><div class="loading">Select a stock above. This section walks through every number used in the verdicts and explains, in plain English, why each one pushes toward buy or sell.</div>';
+    return;
+  }
+  const d=state.data[t];
+  if(d.manual){
+    cardEl.innerHTML=`<h2>🎯 Recommendation — ${esc(t)}</h2><div class="loading">Manual price entry has no history — indicators and recommendations need real chart data.</div>`;
+    whyEl.innerHTML=`<h2>🧠 Why buy or sell — ${esc(t)}</h2><div class="loading">Not available for manually-priced tickers.</div>`;
+    return;
+  }
+  const r=recoOf(d);
+  const topDriver=(h)=>{ const s=[...h.parts].sort((a,b)=>Math.abs(b.pts)-Math.abs(a.pts))[0]; return s?s.what:'—'; };
+  const boxes=HORIZONS.map(H=>{ const h=r[H.key];
+    return `<div class="reco-col">
+      <div class="verdict"><div><div class="horizon">${H.icon} ${H.name} · ${H.span}</div><div class="word ${h.v.cls}">${h.v.word}</div></div><div class="scnum">${h.score}/100</div></div>
+      <div class="sbar"><i style="width:${h.score}%;background:${h.score>=56?'var(--up)':h.score<=44?'var(--down)':'var(--gold)'}"></i></div>
+      <div class="reco-why">${actionFor(H.key,h.v.word)}<br><span style="color:var(--dim)">Main driver: ${topDriver(h)}. <i>(${H.who})</i></span></div>
+    </div>`; }).join('');
+  cardEl.innerHTML=`<h2>🎯 Recommendation — ${esc(t)} <span style="font-weight:400;text-transform:none;letter-spacing:0">(${esc(d.name)}) — four time horizons, pick the one that matches your intention</span></h2>
+    <div class="reco-grid">${boxes}</div>
+    ${guideHTML(t,d,r)}
+    <div style="font-size:11px;color:var(--dim);margin-top:10px;line-height:1.6">Scale (every horizon): ≥68 BUY · 56–67 LEAN BUY · 45–55 HOLD · 33–44 REDUCE · &lt;33 SELL. Each starts at 50 (neutral) and every indicator adds or subtracts points — the full math, value by value, is in the "Why buy or sell" panel below.</div>`;
+
+  whyEl.innerHTML=`<h2>🧠 Why buy or sell — ${esc(t)} at ${csym(d.currency)}${fmt(d.price)}, value by value, all four horizons</h2>
+    <div class="reco-grid">
+      ${HORIZONS.map(H=>recoColHTML(`${H.icon} ${H.name} · ${H.span} (${H.who})`, r[H.key])).join('')}
+    </div>
+    <div class="reco-summary">
+      <b>Putting it together for ${esc(t)}:</b>
+      ⚡${r.d1.score} · 📅${r.st.score} · 📈${r.lt.score} · 🏛${r.yr.score}.
+      ${ r.st.score>=56 && r.lt.score>=56 ? `The trading and investing horizons agree on strength — the cleanest technical setup. The discipline it demands is an exit plan, because every trend eventually ends.`
+       : r.st.score<=44 && r.lt.score<=44 ? `Trading and investing horizons agree on weakness — technically the clearest "stay away / protect capital" picture. Bargain hunting here fights every clock at once.`
+       : r.st.score>=56 && r.lt.score<=44 ? `Short-term bounce inside a longer downtrend — classic bear-market-rally conditions. Tradeable for fast traders; history says investors should wait for the 200-day average to be reclaimed.`
+       : r.st.score<=44 && r.lt.score>=56 ? `Short-term weakness inside a longer uptrend — for investors, historically where the better entry prices live. The risk: every real reversal also starts as "just a pullback".`
+       : `The middle horizons are neutral — the next move likely depends on news and fundamentals rather than chart mechanics.` }
+      ${ d.years>=2.5 ? ` The Years view (${r.yr.v.word} ${r.yr.score}) is based on ${fmt(d.years,1)} years of real history — see its column above for whether this has actually been a wealth-builder.` : ` The Years view is neutral only because the data history is too short to judge.` }
+      <br><br><span style="color:var(--dim);font-size:12px">These numbers read <b>only the price chart and trailing dividends</b> — never earnings, valuation, debt, or tomorrow's headlines (check the News panel for those). Not financial advice.</span>
+    </div>`;
+  renderPlan(d);
+  renderBacktest(d);
+}
+
+function renderPlan(d){
+  const el=document.getElementById('planCard');
+  const p=tradePlanOf(d);
+  if(!p){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='block';
+  const cs=csym(d.currency);
+  /* position-size calculator: portfolio value (auto if known) × risk% ÷ per-share risk */
+  let autoPV=0;
+  for(const t2 of state.tickers){ const h2=state.holdings[t2], d2=state.data[t2]; if(h2&&d2&&h2.shares>0){ const v=convert(h2.shares*d2.price, d2.currency, d.currency); if(v!=null) autoPV+=v; } }
+  const pv = state.accountSize>0 ? state.accountSize : Math.round(autoPV);
+  const riskAmt = pv*state.riskPct/100;
+  const shares = riskAmt>0 ? Math.floor(riskAmt/p.riskPS) : 0;
+  el.innerHTML=`<h2>📍 Trade plan — ${esc(d.sym)} <span style="font-weight:400;text-transform:none;letter-spacing:0">(a structured way to act on the verdict — every level explained)</span></h2>
+  <div class="plan-grid">
+    <div class="plan-cell"><div class="k">Entry zone</div><div class="v">${cs}${fmt(p.entry)}</div></div>
+    <div class="plan-cell"><div class="k">Stop-loss</div><div class="v d">${cs}${fmt(p.stop)}</div></div>
+    <div class="plan-cell"><div class="k">Target</div><div class="v u">${cs}${fmt(p.target)}</div></div>
+    <div class="plan-cell"><div class="k">Risk per share</div><div class="v">${cs}${fmt(p.riskPS)} (${fmt(p.riskPct,1)}%)</div></div>
+    <div class="plan-cell"><div class="k">Reward : risk</div><div class="v ${p.rr>=2?'u':p.rr>=1?'':'d'}">${fmt(p.rr,1)} : 1</div></div>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 6px">
+    <button class="btn sm" onclick="setPlanAlert('${d.sym}','below',${p.entry.toFixed(4)})" title="get a 🔔 (and notification) when price reaches the entry zone">🔔 Alert me at entry ${fmt(p.entry)}</button>
+    <button class="btn sm" onclick="setPlanAlert('${d.sym}','above',${p.target.toFixed(4)})" title="get a 🔔 when price reaches the target — review taking profit">🔔 Alert at target ${fmt(p.target)}</button>
+    <button class="btn sm" onclick="setPlanAlert('${d.sym}','below',${p.stop.toFixed(4)})" title="get a 🔔 when price breaks the stop level — the plan says act">🔔 Alert at stop ${fmt(p.stop)}</button>
+  </div>
+  <div class="ind"><div class="row"><span>Entry — why ${cs}${fmt(p.entry)}</span></div><div class="why">${p.entryNote}</div></div>
+  <div class="ind"><div class="row"><span>Stop-loss — why ${cs}${fmt(p.stop)}</span></div><div class="why">${p.stopNote} If price closes below it, the trade idea is simply wrong — selling there keeps a small mistake from becoming a big one.</div></div>
+  <div class="ind"><div class="row"><span>Target — why ${cs}${fmt(p.target)}</span></div><div class="why">${p.targetNote} Reward:risk of ${fmt(p.rr,1)}:1 means you stand to gain ${fmt(p.rr,1)}× what you're risking — ${p.rr>=2?'a healthy ratio (most traders demand at least 2:1).':p.rr>=1?'acceptable but thin; many traders would wait for a better entry to improve it.':'an unfavourable ratio — the math says wait for a lower entry or skip.'}</div></div>
+  <div class="ind"><div class="row"><span>How many shares? (risk-based sizing)</span></div>
+  <div class="why">The professional rule: decide what you can lose <i>first</i>. Risking <b>${fmt(state.riskPct,1)}%</b> of a ${cs}${fmt(pv,0)} portfolio = ${cs}${fmt(riskAmt,0)} max loss. Divided by the ${cs}${fmt(p.riskPS)} risk per share → <b>${shares>0?shares.toLocaleString():'—'} shares</b> (≈ ${cs}${fmt(shares*p.entry,0)} position). If the stop is hit you lose only your planned ${fmt(state.riskPct,1)}% — survivable, repeatable.</div>
+  <div class="hold">
+    <div><label>Portfolio value (${esc(d.currency)}) — auto-filled from your holdings, override if you like</label><input type="number" step="any" min="0" id="acctsz" value="${state.accountSize>0?state.accountSize:''}" placeholder="${pv>0?pv:'e.g. 10000'}"></div>
+    <div><label>Risk per trade %</label><input type="number" step="0.5" min="0.5" max="10" id="riskpct" value="${state.riskPct}"></div>
+    <button class="btn gold" onclick="saveSizing()">Recalculate</button>
+  </div></div>
+  <div class="focus-msg">A plan like this doesn't predict anything — it just decides <b>before</b> emotions arrive what you'll pay, where you're wrong, and how much you can lose. Adjust the levels to your own judgment; the point is having levels at all. Not financial advice.</div>`;
+}
+
+function renderBacktest(d){
+  const el=document.getElementById('btCard');
+  const bt=backtestOf(d);
+  if(!bt){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='block';
+  const win=bt.stratRet>=bt.bhRet;
+  const ddBetter=bt.ddS>bt.ddB; /* less negative = better */
+  el.innerHTML=`<h2>🧪 Backtest — did the trend rule actually work on ${esc(d.sym)}? <span style="font-weight:400;text-transform:none;letter-spacing:0">(${fmt(bt.yrs,1)} years of real history, no hindsight)</span></h2>
+  <div style="font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:10px">Simulation: hold ${esc(d.sym)} only while price is above its 200-day average (the backbone of the long-term verdict); sit in cash below it. Each ▲▼ on the price chart marks where the rule flipped. Compare that against simply buying and holding:</div>
+  <div class="plan-grid">
+    <div class="plan-cell"><div class="k">Trend rule return</div><div class="v ${cls(bt.stratRet)}">${sign(bt.stratRet)}%${bt.stratCagr!=null?` <span style="font-size:10px;color:var(--dim)">(${sign(bt.stratCagr)}%/yr)</span>`:''}</div></div>
+    <div class="plan-cell"><div class="k">Buy &amp; hold return</div><div class="v ${cls(bt.bhRet)}">${sign(bt.bhRet)}%${bt.bhCagr!=null?` <span style="font-size:10px;color:var(--dim)">(${sign(bt.bhCagr)}%/yr)</span>`:''}</div></div>
+    <div class="plan-cell"><div class="k">Worst fall (rule)</div><div class="v">${fmt(bt.ddS,0)}%</div></div>
+    <div class="plan-cell"><div class="k">Worst fall (hold)</div><div class="v">${fmt(bt.ddB,0)}%</div></div>
+    <div class="plan-cell"><div class="k">Signal flips</div><div class="v">${bt.flips}</div></div>
+    <div class="plan-cell"><div class="k">Time invested</div><div class="v">${fmt(bt.timeIn,0)}%</div></div>
+  </div>
+  <div class="reco-summary" style="margin-top:10px">
+    <b>What this says, honestly:</b>
+    ${win
+      ? `On ${esc(d.sym)}'s own history, the trend rule <b class="u">beat buy-and-hold</b> (${sign(bt.stratRet)}% vs ${sign(bt.bhRet)}%)${ddBetter?` <i>and</i> suffered a smaller worst-case fall (${fmt(bt.ddS,0)}% vs ${fmt(bt.ddB,0)}%)`:''} — this stock has trended cleanly enough for the rule to add value.`
+      : `On ${esc(d.sym)}'s own history, simply buying and holding <b>beat the trend rule</b> (${sign(bt.bhRet)}% vs ${sign(bt.stratRet)}%). ${bt.flips>8?`The rule flipped ${bt.flips} times — this stock whipsaws around its 200-day average, and every false flip costs money. `:''}${ddBetter?`The rule's real payoff here was <b>comfort</b>: its worst fall was ${fmt(bt.ddS,0)}% vs ${fmt(bt.ddB,0)}% for holding — you earn less but sleep better. `:''}That's the honest trade-off of trend-following: it usually lags in smooth bull markets and earns its keep by side-stepping deep crashes.`}
+    <br><span style="color:var(--dim);font-size:12px">One stock's past ${fmt(bt.yrs,1)} years is a small sample — treat this as a reality-check on the verdict above, not proof either way. Costs, taxes and dividends while in cash are ignored.</span>
+  </div>`;
+}
+
+/* ================= rendering: market mood tab ================= */
+function renderMood(){
+  const el=document.getElementById('moodCard');
+  const m=computeMood();
+  if(!m){ el.innerHTML='<h2>🌡 Market mood — fear &amp; greed</h2><div class="loading">Loading market data (S&amp;P 500, VIX, bonds)… if this never loads, press ↻ Refresh.</div>'; return; }
+  const L=m.label;
+  el.innerHTML=`<h2>🌡 Market mood — fear &amp; greed <span style="font-weight:400;text-transform:none;letter-spacing:0">— computed live from market data, every input shown below</span></h2>
+  <div class="mood-big"><div class="num" style="color:${L.col}">${Math.round(m.score)}</div><div class="word" style="color:${L.col}">${L.word}</div></div>
+  <div class="gauge"><div class="bar fg"><div class="pin" style="left:calc(${fmt(m.score,1)}% - 2px)"></div></div>
+  <div class="lbls"><span>0 · Extreme fear</span><span>50 · Neutral</span><span>100 · Extreme greed</span></div></div>
+  <div style="font-size:13px;line-height:1.7;margin:10px 0">
+    ${m.score<25?`<b style="color:${L.col}">The market is in panic mode.</b> Investors are dumping risk at any price. History's best long-term buying opportunities (2009, March 2020) happened at readings like this — but so did the <i>middles</i> of crashes. If you buy here, buy gradually and only what you'd happily hold through more falling.`
+     :m.score<45?`<b style="color:${L.col}">Caution is in charge.</b> Investors are favouring safety over growth. Not panic — but rallies get sold and bad news hits hard. Good environment for patient shopping lists, poor for chasing momentum.`
+     :m.score<=55?`<b style="color:${L.col}">The market is balanced.</b> Neither euphoria nor fear is distorting prices much, so individual stock signals (your Dashboard verdicts) matter more than the market backdrop right now.`
+     :m.score<75?`<b style="color:${L.col}">Risk appetite is high.</b> Investors are confidently buying. Trends work well in this mood — but entry prices are getting expensive, and the crowd is leaning one way. A fine time to hold winners; a risky time to chase laggards "because everything's going up".`
+     :`<b style="color:${L.col}">Euphoria territory.</b> Everyone is greedy, insurance is cheap, junk is loved. Markets can stay euphoric for a while, but corrections are born here, not in fear. The contrarian discipline: this is when you review stop-losses and trim oversized winners — not when you add risk.`}
+  </div>
+  ${m.comps.map(c=>{const cl=moodLabel(c.score);return `<div class="mood-comp">
+    <div class="mhead"><b>${c.name}</b><span class="chip" style="color:${cl.col};border-color:${cl.col}">${Math.round(c.score)} · ${cl.word}</span></div>
+    <div class="mval">${c.val}</div>
+    <div class="sbar" style="margin:6px 0"><i style="width:${c.score}%;background:${cl.col}"></i></div>
+    <div class="mwhy">${c.why}</div>
+  </div>`;}).join('')}
+  <div class="focus-msg">How to use this with your stocks: the mood gauge is the <b>weather</b>, your per-stock verdicts are the <b>road conditions</b>. A BUY signal during extreme greed deserves extra skepticism (you're buying what the euphoric crowd already bought); a quality stock hitting your buy-zone alert during extreme fear is historically the best combination this tool can show you. Composite = simple average of the ${m.comps.length} components above, all from Yahoo Finance market data. Inspired by CNN's Fear &amp; Greed Index. Not financial advice.</div>`;
+}
+/* ================= rendering: portfolio tab ================= */
+const PALETTE=['#4FCB8B','#E8B44C','#7FB8C9','#F07474','#9BD8B4','#C9A0DC','#E8DC4C','#8FA6A3','#6FA8DC','#D5A06B'];
+
+function heldRows(){
+  const rows=[];
+  for(const t of state.tickers){
+    const h=state.holdings[t], d=state.data[t];
+    if(h&&d&&h.shares>0){
+      const val=convert(h.shares*d.price, d.currency);
+      const cost=convert(h.shares*h.cost, d.currency);
+      const day=convert(h.shares*d.chg, d.currency);
+      const inc=convert(h.shares*(d.div12||0), d.currency);
+      rows.push({t, d, h, val, cost, day, inc, missingFx: val==null});
+    }
+  }
+  return rows;
+}
+
+function renderPortfolio(){
+  const totEl=document.getElementById('portTotals');
+  const rows=heldRows();
+  const curOpts=['USD','THB','EUR','GBP','JPY','SGD','HKD'].map(c=>`<option ${state.baseCur===c?'selected':''}>${c}</option>`).join('');
+  const baseSel=`<select id="baseCur" onchange="setBaseCur(this.value)" title="show everything in this currency">${curOpts}</select>`;
+  if(!rows.length){
+    totEl.innerHTML=`<h2>💼 Portfolio</h2><div class="loading">No holdings yet. Go to the Dashboard, click one of your stocks, and enter <b>Shares</b> + <b>Avg cost</b> in "Your holding" — this page then builds itself automatically.</div>`;
+    for(const id of ['portAlloc','portDivs','portHist','portCorr']) document.getElementById(id).style.display='none';
+    return;
+  }
+  const missing=rows.filter(r=>r.missingFx);
+  const ok=rows.filter(r=>!r.missingFx);
+  const sum=k=>ok.reduce((a,r)=>a+(r[k]||0),0);
+  const val=sum('val'), cost=sum('cost'), day=sum('day'), inc=sum('inc');
+  const pl=val-cost;
+  const cs=csym(state.baseCur);
+  /* cash + Thai funds Yahoo can't track, from the 11 June report */
+  let cash=null, untrk=null;
+  if(state.portLoaded){
+    const cTH=convert(MY_PORTFOLIO.cashTHB,'THB'), cUS=convert(MY_PORTFOLIO.cashUSD,'USD');
+    if(cTH!=null&&cUS!=null) cash=cTH+cUS;
+    const uTH=MY_PORTFOLIO.untracked.reduce((a,u)=>a+u[1],0);
+    untrk=convert(uTH,'THB');
+  }
+  const grand=val+(cash||0)+(untrk||0);
+  totEl.innerHTML=`<h2>💼 Portfolio — everything in ${esc(state.baseCur)} ${baseSel}
+    <span style="float:right;display:flex;gap:6px">
+      <button class="btn sm" onclick="reloadReportPortfolio()" title="re-import shares & costs from the 11 June 2026 report file">📥 Reload from report</button>
+      <button class="btn sm" onclick="exportCSV()" title="download holdings as a spreadsheet-ready CSV">📤 CSV</button>
+      <button class="btn sm" onclick="exportNotifyConfig()" title="download portfolio.json for the hourly LINE/Telegram notifier — replace notifier/portfolio.json in your GitHub repo with it">🔔 Notify cfg</button>
+    </span></h2>
+  ${state.pendingPortfolio?`<div class="warnbox" style="border-color:var(--gold);color:var(--gold)">⏳ Importing your portfolio from the 11 June report — shares &amp; avg costs appear as soon as prices + exchange rates finish loading.</div>`:''}
+  ${missing.length?`<div class="warnbox">⚠ Exchange rate not loaded yet for: ${missing.map(r=>r.t+' ('+r.d.currency+')').join(', ')} — these are excluded below. Press ↻ Refresh.</div>`:''}
+  <div class="summary" style="margin-bottom:12px">
+    <div class="stat"><div class="lbl">Grand total ${state.portLoaded?'(incl. cash & funds)':''}</div><div class="val">${cs}${fmt(grand)}</div></div>
+    <div class="stat"><div class="lbl">Tracked stocks value</div><div class="val">${cs}${fmt(val)}</div></div>
+    <div class="stat"><div class="lbl">Profit / loss</div><div class="val ${cls(pl)}">${sign(pl)} (${cost>0?sign(pl/cost*100):'—'}%)</div></div>
+    <div class="stat"><div class="lbl">Today</div><div class="val ${cls(day)}">${sign(day)}</div></div>
+    <div class="stat"><div class="lbl">Dividends / yr (est)</div><div class="val" style="color:var(--gold)">${inc>0?cs+fmt(inc):'—'}</div></div>
+    ${cash!=null?`<div class="stat"><div class="lbl">Cash (Dime + Webull)</div><div class="val">${cs}${fmt(cash)}</div></div>`:''}
+    ${untrk!=null?`<div class="stat"><div class="lbl">Thai funds &amp; gold (untracked)</div><div class="val" title="${esc(MY_PORTFOLIO.untracked.map(u=>u[0]+' ฿'+fmt(u[1])).join(' · '))}">${cs}${fmt(untrk)}</div></div>`:''}
+  </div>
+  <table><thead><tr><th>Ticker</th><th>Shares</th><th>Price</th><th>Value (${esc(state.baseCur)})</th><th>Weight</th><th>P/L</th><th>P/L %</th><th>Day</th></tr></thead><tbody>
+  ${ok.sort((a,b)=>b.val-a.val).map(r=>{
+    const w=val>0?r.val/val*100:0, p=r.val-r.cost;
+    return `<tr onclick="switchTab('dash');select('${r.t}')"><td class="sym">${r.t}</td><td>${fmt(r.h.shares,r.h.shares%1?2:0)}</td><td>${csym(r.d.currency)}${fmt(r.d.price)}</td><td>${cs}${fmt(r.val)}</td><td>${fmt(w,1)}%</td><td class="${cls(p)}">${sign(p)}</td><td class="${cls(p)}">${r.cost>0?sign(p/r.cost*100)+'%':'—'}</td><td class="${cls(r.day||0)}">${sign(r.day||0)}</td></tr>`;
+  }).join('')}</tbody></table>
+  <div style="font-size:11px;color:var(--dim);margin-top:8px">FX rates from Yahoo (refreshed ~6-hourly): ${neededCurrencies().map(c=>state.fx[c]?`1 ${c} = ${fmt(state.fx[c].rate,4)} USD`:c+': loading…').join(' · ')||'all holdings already in USD'}. Click a row to open that stock.</div>`;
+  renderActions(ok, val, cash);
+  renderAlloc(ok, val);
+  renderDivCal(ok);
+  renderPortHist(ok);
+  renderCorr();
+}
+
+/* ---------- recommended actions for YOUR portfolio ---------- */
+function renderActions(ok, val, cash){
+  const el=document.getElementById('portActions');
+  if(ok.length<2||val<=0){ el.style.display='none'; return; }
+  el.style.display='block';
+  const cs=csym(state.baseCur);
+  const acts=[];
+  const add=(sev,icon,title,why)=>acts.push({sev,icon,title,why});
+  for(const r of ok){
+    if(r.d.manual) continue;
+    const rc=recoOf(r.d);
+    const w=r.val/val*100, plPct=r.cost>0?(r.val-r.cost)/r.cost*100:0;
+    /* big position + weak chart */
+    if(w>=10 && rc.lt.score<=44)
+      add(2,'⚠️',`${r.t}: large position (${fmt(w,1)}%) in a weakening chart`,
+        `${r.t} is ${fmt(w,1)}% of your tracked portfolio while its long-term reading is ${rc.lt.v.word} (${rc.lt.score}/100). The combination of size + downtrend is where portfolios get hurt most. Consider trimming toward ~10% or setting a hard stop — click the row above to see the levels.`);
+    /* uptrend pullback = add-on zone */
+    if(rc.lt.score>=56 && rc.st.score<=44 && w<15)
+      add(1,'🛒',`${r.t}: long-term uptrend, short-term dip — a DCA-friendly zone`,
+        `Long-term ${rc.lt.v.word} (${rc.lt.score}) but short-term ${rc.st.v.word} (${rc.st.score}): a pullback inside an uptrend. Historically these dips are where better entries live — if you were planning to add to ${r.t} anyway, the chart argues this is a more sensible moment than chasing strength.`);
+    /* deep loser in a downtrend */
+    if(plPct<=-12 && rc.lt.score<=44)
+      add(2,'✂️',`${r.t}: losing ${fmt(Math.abs(plPct),0)}% and still in a downtrend`,
+        `You're down ${fmt(Math.abs(plPct),1)}% and the long-term chart reads ${rc.lt.v.word} (${rc.lt.score}/100) — the market hasn't started agreeing with this position yet. Decide deliberately: either re-confirm why you own it (fundamentals, not hope), or cut it and redeploy. "It already fell a lot" is not a thesis.`);
+    /* big winner — protect it */
+    if(plPct>=25 && rc.lt.score>=56){
+      const p=tradePlanOf(r.d);
+      add(1,'🛡️',`${r.t}: +${fmt(plPct,0)}% winner — protect the gain`,
+        `Up ${fmt(plPct,1)}% with the trend still ${rc.lt.v.word}. Winners should be ridden, not sold early — but decide NOW where you'd exit: ${p?`a trailing stop near ${csym(r.d.currency)}${fmt(p.stop)} (2×ATR / swing low) currently locks in most of the gain.`:`set a trailing stop below the recent swing low.`}`);
+    }
+    /* short-term overheated big position */
+    if(w>=10 && r.d.rsi!=null && r.d.rsi>74)
+      add(1,'🌡️',`${r.t}: ${fmt(w,1)}% position is overbought (RSI ${fmt(r.d.rsi,0)})`,
+        `Strong stocks get pullbacks from RSI this hot. Nothing requires action — but it's a better moment for taking partial profit / rebalancing than for adding.`);
+  }
+  /* near-duplicate holdings */
+  const heldT=ok.filter(r=>!r.d.manual&&r.d.closes&&r.d.closes.length>80).map(r=>r.t);
+  for(let i=0;i<heldT.length;i++)for(let j=i+1;j<heldT.length;j++){
+    const c=pearson(dailyReturns(state.data[heldT[i]].closes,253),dailyReturns(state.data[heldT[j]].closes,253));
+    if(c!=null&&c>0.93){
+      const wi=ok.find(r=>r.t===heldT[i]), wj=ok.find(r=>r.t===heldT[j]);
+      add(0,'👯',`${heldT[i]} + ${heldT[j]} move ${fmt(c*100,0)}% together`,
+        `These two (${fmt((wi.val+wj.val)/val*100,1)}% of your portfolio combined) are statistically the same bet. Holding both is fine, but it's one decision wearing two names — consider consolidating into the cheaper/stronger one to simplify.`);
+    }
+  }
+  /* cash deployment */
+  if(cash!=null && cash/(val+cash)>0.12){
+    const buys=ok.filter(r=>!r.d.manual&&recoOf(r.d).lt.score>=56&&recoOf(r.d).st.score<=50).map(r=>r.t).slice(0,4);
+    add(0,'💵',`Cash is ${fmt(cash/(val+cash)*100,0)}% of your liquid portfolio`,
+      `${cs}${fmt(cash)} is sitting idle. That's healthy dry powder — but if it's structurally unused, a schedule (e.g. monthly DCA, which your activity log shows you already do) puts it to work without timing stress.${buys.length?` Holdings currently in an uptrend-dip ("add zone"): ${buys.join(', ')}.`:''}`);
+  }
+  /* income summary */
+  const incRows=ok.filter(r=>r.inc>0).sort((a,b)=>b.inc-a.inc);
+  if(incRows.length)
+    add(0,'💰',`Your dividend machine: ~${cs}${fmt(incRows.reduce((a,r)=>a+r.inc,0),0)}/year`,
+      `Biggest contributors: ${incRows.slice(0,3).map(r=>`${r.t} ${cs}${fmt(r.inc,0)}`).join(', ')}. Reinvested dividends are the quiet half of long-term returns — make sure DRIP is on where you want it (your Webull report shows DRIP active on several).`);
+  if(!acts.length){ el.style.display='none'; return; }
+  acts.sort((a,b)=>b.sev-a.sev);
+  const sevChip=s=>s===2?'<span class="chip bear">act soon</span>':s===1?'<span class="chip lean-b">worth doing</span>':'<span class="chip mid">good to know</span>';
+  el.innerHTML=`<h2>🎯 Recommended actions — your portfolio <span style="font-weight:400;text-transform:none;letter-spacing:0">— generated from your real positions + live chart signals</span></h2>
+  ${acts.slice(0,9).map(a=>`<div class="ind"><div class="row"><span>${a.icon} <b>${a.title}</b></span>${sevChip(a.sev)}</div><div class="why">${a.why}</div></div>`).join('')}
+  <div class="focus-msg">These are rule-based observations from price signals + portfolio math (weights, correlation, P/L) — they can't see fundamentals or your tax situation, and they are <b>not financial advice</b>. Treat each as a question to answer deliberately, not an instruction.</div>`;
+}
+
+function reloadReportPortfolio(){
+  if(!confirm('Re-import shares & average costs from the 11 June 2026 report?\nThis overwrites manual edits to holdings of those tickers.')) return;
+  loadMyPortfolio();
+  derivePortfolioHoldings(true);
+  renderAll();
+  refreshAll();
+}
+/* gentle one-click loader for the empty-Holdings button: derives from whatever data is
+   already cached (using the fallback FX rate so it works offline), then refreshes the rest */
+function forceLoadPortfolio(){
+  loadMyPortfolio();
+  derivePortfolioHoldings(true);
+  setStatus('Loading your holdings from the report…');
+  renderAll(); renderWatchlist();
+  refreshAll();
+}
+/* config file for the hourly LINE/Telegram notifier (GitHub Action / Cloudflare Worker).
+   Drop the downloaded file into notifier/portfolio.json in the repo to update what it tracks. */
+function exportNotifyConfig(){
+  const holdings={};
+  for(const t of state.tickers){
+    const h=state.holdings[t], d=state.data[t];
+    if(h&&h.shares>0&&d&&!d.manual) holdings[t]={shares:h.shares, cost:h.cost, currency:d.currency, group:state.groups[t]||''};
+  }
+  const cfg={ generated:new Date().toISOString(), baseCur:'THB',
+    holdings, watchlist:state.tickers.filter(t=>!isHeld(t)&&state.data[t]&&!state.data[t].manual),
+    alerts:state.alerts, cashTHB:MY_PORTFOLIO.cashTHB, cashUSD:MY_PORTFOLIO.cashUSD,
+    untrackedTHB:MY_PORTFOLIO.untracked.reduce((a,u)=>a+u[1],0) };
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'}));
+  a.download='portfolio.json'; a.click();
+}
+function exportCSV(){
+  const rows=heldRows();
+  const cs=state.baseCur;
+  let csv=`Ticker,Name,Currency,Shares,AvgCost,Price,Value(${cs}),Cost(${cs}),P/L(${cs}),P/L %,Yield %,DayChange %\n`;
+  for(const r of rows){
+    csv+=[r.t, '"'+(r.d.name||'').replace(/"/g,"'")+'"', r.d.currency, r.h.shares, r.h.cost, r.d.price,
+      r.val!=null?r.val.toFixed(2):'', r.cost!=null?r.cost.toFixed(2):'',
+      (r.val!=null&&r.cost!=null)?(r.val-r.cost).toFixed(2):'',
+      r.cost>0?((r.val-r.cost)/r.cost*100).toFixed(2):'', r.d.yield?r.d.yield.toFixed(2):'0',
+      r.d.chgPct!=null?r.d.chgPct.toFixed(2):''].join(',')+'\n';
+  }
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='longview-portfolio.csv'; a.click();
+}
+
+/* ================= 📝 portfolio summary ================= */
+function buildSummary(){
+  const cs=csym(state.baseCur);
+  const rows=heldRows().filter(r=>!r.missingFx && state.data[r.t] && !state.data[r.t].manual && r.val!=null);
+  if(rows.length<1) return null;
+  let val=0,cost=0,day=0,inc=0;
+  for(const r of rows){ val+=r.val; cost+=r.cost||0; day+=r.day||0; inc+=r.inc||0; }
+  const pl=val-cost, plPct=cost>0?pl/cost*100:0, dayPct=val-day?day/(val-day)*100:0;
+  let cash=null,untrk=null;
+  if(state.portLoaded){
+    const cTH=convert(MY_PORTFOLIO.cashTHB,'THB'), cUS=convert(MY_PORTFOLIO.cashUSD,'USD');
+    if(cTH!=null&&cUS!=null) cash=cTH+cUS;
+    untrk=convert(MY_PORTFOLIO.untracked.reduce((a,u)=>a+u[1],0),'THB');
+  }
+  const grand=val+(cash||0)+(untrk||0);
+  const en=rows.map(r=>{ const d=state.data[r.t], rc=recoOf(d); return {t:r.t, d, rc, val:r.val, w:val>0?r.val/val*100:0, plp:r.cost>0?(r.val-r.cost)/r.cost*100:0, day:r.day||0}; });
+  const census=key=>{ const c={BUY:0,'LEAN BUY':0,HOLD:0,REDUCE:0,SELL:0}; for(const e of en) c[e.rc[key].v.word]++; return c; };
+  const cM=census('lt'), cY=census('yr');
+  let twScore=0,wsum=0; for(const e of en){ twScore+=e.rc.lt.score*e.val; wsum+=e.val; } twScore=wsum>0?twScore/wsum:50;
+  const byDay=[...en].sort((a,b)=>b.d.chgPct-a.d.chgPct);
+  const byPL=[...en].sort((a,b)=>b.plp-a.plp);
+  const byW=[...en].sort((a,b)=>b.w-a.w);
+  const topW=byW[0];
+  const grp={}; for(const e of en){ const g=state.groups[e.t]||'Ungrouped'; grp[g]=(grp[g]||0)+e.val; }
+  const grpArr=Object.entries(grp).sort((a,b)=>b[1]-a[1]);
+  const cand=en.filter(e=>e.d.closes&&e.d.closes.length>80);
+  const dupes=[];
+  for(let i=0;i<cand.length;i++)for(let j=i+1;j<cand.length;j++){ const c=pearson(dailyReturns(cand[i].d.closes,253),dailyReturns(cand[j].d.closes,253)); if(c!=null&&c>0.9) dupes.push([cand[i].t,cand[j].t,c]); }
+  const mood=computeMood();
+  const weak=en.filter(e=>e.rc.lt.score<=44).sort((a,b)=>b.val-a.val);
+  const dca=en.filter(e=>e.rc.lt.score>=56&&e.rc.st.score<=44);
+  /* health score: trend (40) + diversification (30) + profitability (20) + cash buffer (10) */
+  const cashPct=cash!=null&&grand>0?cash/grand*100:0;
+  const trendH=Math.max(0,Math.min(40,(twScore-30)/70*40));
+  let divH=30; if(topW.w>40)divH-=14; else if(topW.w>30)divH-=8; else if(topW.w>22)divH-=4; divH-=Math.min(10,dupes.length*3); if(en.length<5)divH-=6; divH=Math.max(0,divH);
+  const profH=Math.max(0,Math.min(20,10+plPct*0.6));
+  const cashH=cashPct>=4&&cashPct<=25?10:cashPct<4?4:cashPct<40?7:3;
+  const health=Math.round(trendH+divH+profH+cashH);
+  const hLabel=health>=75?'Strong':health>=55?'Healthy':health>=40?'Mixed':'Needs attention';
+  const hCol=health>=55?'var(--up)':health>=40?'var(--gold)':'var(--down)';
+  return {cs,val,cost,pl,plPct,day,dayPct,inc,cash,untrk,grand,en,cM,cY,twScore,byDay,byPL,topW,grpArr,dupes,mood,weak,dca,health,hLabel,hCol,cashPct,n:en.length};
+}
+
+function summaryHTML(s){
+  const sgnp=(n,d=1)=>`<span class="${cls(n)}">${sign(n,d)}%</span>`;
+  const verdictPills=c=>['BUY','LEAN BUY','HOLD','REDUCE','SELL'].filter(k=>c[k]).map(k=>`<span class="pill">${k}: ${c[k]}</span>`).join('');
+  const fmtMoney=v=>s.cs+fmt(v);
+  return `<button class="mclose" onclick="closeSummary()" title="close">✕</button>
+  <h2>📝 Portfolio summary <span style="font-weight:400;color:var(--dim);font-size:12px">— ${new Date().toLocaleString()}</span></h2>
+  <div style="font-size:12px;color:var(--dim)">${s.n} tracked holdings in ${esc(state.baseCur)}${s.cash!=null?' · incl. cash & untracked Thai funds':''}</div>
+
+  <div class="sum-grid">
+    <div class="sum-cell"><div class="k">Grand total</div><div class="v">${fmtMoney(s.grand)}</div></div>
+    <div class="sum-cell"><div class="k">Today</div><div class="v ${cls(s.day)}">${sign(s.day,0)}</div></div>
+    <div class="sum-cell"><div class="k">Total P/L</div><div class="v ${cls(s.pl)}">${sign(s.pl,0)} (${sign(s.plPct)}%)</div></div>
+    <div class="sum-cell"><div class="k">Dividends/yr</div><div class="v" style="color:var(--gold)">${s.inc>0?fmtMoney(s.inc):'—'}</div></div>
+  </div>
+
+  <div class="sum-sec"><b class="lbl">🩺 Portfolio health: ${s.health}/100 — ${s.hLabel}</b>
+  <div class="healthbar"><i style="width:${s.health}%;background:${s.hCol}"></i></div>
+  Built from trend quality (value-weighted Months score ${Math.round(s.twScore)}/100), diversification (largest position ${fmt(s.topW.w,0)}%${s.dupes.length?`, ${s.dupes.length} near-duplicate pair${s.dupes.length>1?'s':''}`:''}), profitability (${sign(s.plPct)}%) and cash buffer (${fmt(s.cashPct,0)}%). It's a rough at-a-glance gauge, not a grade.</div>
+
+  <div class="sum-sec"><b class="lbl">📊 What the charts say across your holdings</b>
+  <div><b>Months (investing):</b><div class="pillrow">${verdictPills(s.cM)}</div></div>
+  <div style="margin-top:6px"><b>Years (wealth-building):</b><div class="pillrow">${verdictPills(s.cY)}</div></div>
+  ${s.weak.length?`<div style="margin-top:8px">⚠ Weakest (Months downtrend), biggest first: <b>${s.weak.slice(0,5).map(e=>e.t).join(', ')}</b></div>`:'<div style="margin-top:8px;color:var(--up)">No holding is in a Months-downtrend right now.</div>'}
+  ${s.dca.length?`<div style="margin-top:4px">🛒 Uptrend-pullback ("DCA") zones: <b>${s.dca.slice(0,5).map(e=>e.t).join(', ')}</b></div>`:''}</div>
+
+  <div class="sum-sec"><b class="lbl">🏆 Movers</b>
+  Today — best <b>${s.byDay[0].t}</b> ${sgnp(s.byDay[0].d.chgPct)}, worst <b>${s.byDay[s.byDay.length-1].t}</b> ${sgnp(s.byDay[s.byDay.length-1].d.chgPct)}.<br>
+  Since you bought — winner <b>${s.byPL[0].t}</b> ${sgnp(s.byPL[0].plp)}, laggard <b>${s.byPL[s.byPL.length-1].t}</b> ${sgnp(s.byPL[s.byPL.length-1].plp)}.</div>
+
+  <div class="sum-sec"><b class="lbl">🥧 Spread</b>
+  Largest: <b>${s.topW.t}</b> at ${fmt(s.topW.w,1)}% ${s.topW.w>30?'<span class="d">(concentrated — one stock\'s bad quarter moves your whole net worth)</span>':'<span style="color:var(--dim)">(within a common comfort zone)</span>'}.<br>
+  By group: ${s.grpArr.map(([g,v])=>`${esc(g)} ${fmt(v/s.val*100,0)}%`).join(' · ')}.
+  ${s.dupes.length?`<br>👯 Move-together pairs: ${s.dupes.slice(0,3).map(d=>`${d[0]}+${d[1]} (${fmt(d[2]*100,0)}%)`).join(', ')} — effectively one bet bought twice.`:''}</div>
+
+  ${s.mood?`<div class="sum-sec"><b class="lbl">🌡 Market backdrop</b>
+  Fear/greed gauge reads <b style="color:${s.mood.label.col}">${Math.round(s.mood.score)} — ${s.mood.label.word}</b>. ${s.mood.score>=75?'Euphoria — a time to protect winners and be picky, not to chase.':s.mood.score<=25?'Extreme fear — historically the best long-term entries hide here, but only buy what you can hold through more pain.':s.mood.score>=55?'Risk appetite is healthy; trends tend to work, but entries are getting pricey.':s.mood.score<=45?'Caution rules — patient shopping lists beat chasing.':'Balanced — individual stock signals matter more than the backdrop now.'}</div>`:''}
+
+  <div class="sum-narrative">${summaryNarrative(s)}</div>
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+    <button class="btn gold" onclick="copySummaryToClipboard()">📋 Copy summary text</button>
+    <button class="btn" onclick="closeSummary()">Close</button>
+  </div>
+  <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5">Everything here is computed from price charts + your holdings — never earnings, valuation, or news. Not financial advice.</div>`;
+}
+
+function summaryNarrative(s){
+  const bits=[];
+  bits.push(`Your portfolio is worth <b>${s.cs}${fmt(s.grand)}</b>${s.cash!=null?` (${s.cs}${fmt(s.cash)} of it idle cash)`:''}, ${s.pl>=0?`up <b class="u">${s.cs}${fmt(s.pl)}</b>`:`down <b class="d">${s.cs}${fmt(Math.abs(s.pl))}</b>`} (${sign(s.plPct)}%) versus what you paid.`);
+  const bullish=s.cM.BUY+s.cM['LEAN BUY'], bearish=s.cM.REDUCE+s.cM.SELL;
+  bits.push(`On the investing (Months) horizon, ${bullish} of your ${s.n} holdings are in uptrends and ${bearish} are in downtrends — overall trend health scores ${Math.round(s.twScore)}/100.`);
+  if(s.weak.length) bits.push(`The clearest thing to review is your weakest, largest position${s.weak.length>1?'s':''}: <b>${s.weak.slice(0,3).map(e=>e.t).join(', ')}</b> — for each, decide deliberately whether the reason you own it still holds, or set a stop.`);
+  if(s.dca.length) bits.push(`If you're adding money, <b>${s.dca.slice(0,3).map(e=>e.t).join(', ')}</b> ${s.dca.length>1?'are':'is'} in an uptrend but dipping short-term — historically a friendlier entry than chasing strength.`);
+  if(s.topW.w>30) bits.push(`Watch concentration: <b>${s.topW.t}</b> alone is ${fmt(s.topW.w,0)}% of the stock side.`);
+  if(s.cashPct>15) bits.push(`You're holding ${fmt(s.cashPct,0)}% cash — healthy dry powder, but a regular DCA schedule puts it to work without timing stress.`);
+  bits.push(`In one line: <b>${s.health>=55?'a fundamentally sound book':s.health>=40?'a mixed book worth tidying':'a book that needs attention'}</b> — ${s.weak.length?`trim/justify the laggards`:`keep riding the trend`}, mind ${s.topW.t} size, and let the winners run with a stop.`);
+  return bits.join(' ');
+}
+
+function summaryText(s){
+  const m=v=>s.cs+fmt(v);
+  const L=[];
+  L.push(`📝 PORTFOLIO SUMMARY — ${new Date().toLocaleString()}`);
+  L.push(`Total ${m(s.grand)} | today ${sign(s.day,0)} | P/L ${sign(s.pl,0)} (${sign(s.plPct)}%)`);
+  L.push(`Health ${s.health}/100 (${s.hLabel}) · trend ${Math.round(s.twScore)}/100`);
+  if(s.mood) L.push(`Market mood: ${Math.round(s.mood.score)} ${s.mood.label.word}`);
+  L.push(`Months signals — BUY/LEAN ${s.cM.BUY+s.cM['LEAN BUY']}, HOLD ${s.cM.HOLD}, REDUCE/SELL ${s.cM.REDUCE+s.cM.SELL}`);
+  L.push(`Best today ${s.byDay[0].t} ${sign(s.byDay[0].d.chgPct)}% | worst ${s.byDay[s.byDay.length-1].t} ${sign(s.byDay[s.byDay.length-1].d.chgPct)}%`);
+  L.push(`Top winner ${s.byPL[0].t} ${sign(s.byPL[0].plp)}% | laggard ${s.byPL[s.byPL.length-1].t} ${sign(s.byPL[s.byPL.length-1].plp)}%`);
+  L.push(`Largest position ${s.topW.t} ${fmt(s.topW.w,0)}%`);
+  if(s.weak.length) L.push(`Weak charts: ${s.weak.slice(0,5).map(e=>e.t).join(', ')}`);
+  if(s.dca.length) L.push(`DCA zones: ${s.dca.slice(0,5).map(e=>e.t).join(', ')}`);
+  L.push(`— chart signals only, not financial advice`);
+  return L.join('\n');
+}
+
+let _lastSummary=null;
+function openSummary(){
+  const s=buildSummary();
+  const body=document.getElementById('summaryBody');
+  if(!s){ body.innerHTML=`<button class="mclose" onclick="closeSummary()">✕</button><h2>📝 Portfolio summary</h2><div class="loading">No holdings with data yet. If your portfolio didn't import, open the 💼 Portfolio tab and press <b>📥 Reload from report</b>, then try again.</div>`; }
+  else { _lastSummary=s; body.innerHTML=summaryHTML(s); }
+  document.getElementById('summaryModal').classList.add('show');
+}
+function closeSummary(){ document.getElementById('summaryModal').classList.remove('show'); }
+async function copySummaryToClipboard(){
+  if(!_lastSummary) return;
+  try{ await navigator.clipboard.writeText(summaryText(_lastSummary)); setStatus('📋 Portfolio summary copied to clipboard.'); }
+  catch(e){ setStatus('Clipboard blocked — the text is on screen to copy manually.', true); }
+}
+
+function renderAlloc(ok, val){
+  const el=document.getElementById('portAlloc');
+  if(ok.length<1||val<=0){ el.style.display='none'; return; }
+  el.style.display='block';
+  const r=60, cx=85, cy=85, C=2*Math.PI*r;
+  let acc=0;
+  const segs=ok.map((row,i)=>{
+    const frac=row.val/val;
+    const s=`<circle r="${r}" cx="${cx}" cy="${cy}" fill="none" stroke="${PALETTE[i%PALETTE.length]}" stroke-width="26"
+      stroke-dasharray="${(frac*C).toFixed(1)} ${(C-frac*C).toFixed(1)}" stroke-dashoffset="${(-acc*C).toFixed(1)}" transform="rotate(-90 ${cx} ${cy})"/>`;
+    acc+=frac; return s;
+  }).join('');
+  const top=ok[0], topW=top.val/val*100;
+  el.innerHTML=`<h2>🥧 Allocation</h2>
+  <div class="donut-wrap">
+    <svg viewBox="0 0 170 170">${segs}<text x="${cx}" y="${cy+4}" text-anchor="middle" fill="var(--text)" font-size="13" font-family="IBM Plex Mono">${ok.length} holdings</text></svg>
+    <div class="donut-legend">${ok.map((row,i)=>`<div class="dl"><span><i style="background:${PALETTE[i%PALETTE.length]}"></i>${row.t}</span><span>${fmt(row.val/val*100,1)}%</span></div>`).join('')}</div>
+  </div>
+  ${topW>35?`<div class="warnbox" style="margin-top:12px">⚠ <b>${top.t} is ${fmt(topW,0)}% of your portfolio.</b> Above ~35%, one company's bad quarter moves your whole net worth. There's no law against concentration — but it should be a decision, not an accident.</div>`
+   :`<div style="font-size:12px;color:var(--dim);margin-top:10px;line-height:1.6">Largest position: ${top.t} at ${fmt(topW,1)}% — within the common comfort zone (most guides suggest keeping single stocks under ~20–35%).</div>`}`;
+}
+
+function renderDivCal(ok){
+  const el=document.getElementById('portDivs');
+  const items=[];
+  for(const r of ok){
+    const divs=r.d.divs||[];
+    if(divs.length<2) continue;
+    const gaps=[]; for(let i=1;i<divs.length;i++) gaps.push(divs[i].d-divs[i-1].d);
+    gaps.sort((a,b)=>a-b);
+    const med=gaps[Math.floor(gaps.length/2)];
+    const last=divs[divs.length-1];
+    const nextTs=(last.d+med)*1000;
+    if(nextTs < Date.now()-30*86400000 || nextTs > Date.now()+220*86400000) continue;
+    const freq = med<40*86400?'monthly':med<115*86400?'quarterly':med<240*86400?'semi-annual':'annual';
+    const amt=convert(last.a*r.h.shares, r.d.currency);
+    items.push({t:r.t, nextTs, freq, perShare:last.a, cur:r.d.currency, amt});
+  }
+  if(!items.length){ el.style.display='none'; return; }
+  el.style.display='block';
+  items.sort((a,b)=>a.nextTs-b.nextTs);
+  el.innerHTML=`<h2>📅 Dividend calendar <span style="font-weight:400;text-transform:none;letter-spacing:0">— estimated from each fund's payment rhythm</span></h2>
+  <table><thead><tr><th>Ticker</th><th>Pays</th><th>≈ Next payment</th><th>Last per share</th><th>Your est. amount</th></tr></thead><tbody>
+  ${items.map(it=>`<tr><td class="sym">${it.t}</td><td>${it.freq}</td><td>${new Date(it.nextTs).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})}</td><td>${csym(it.cur)}${fmt(it.perShare,4)}</td><td style="color:var(--gold)">${it.amt!=null?csym(state.baseCur)+fmt(it.amt):'—'}</td></tr>`).join('')}</tbody></table>
+  <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.6">Estimates only: next date = last payment + the fund's typical gap; amount = last payment × your shares. Companies can cut, raise or skip dividends without warning.</div>`;
+}
+
+function renderPortHist(ok){
+  const el=document.getElementById('portHist');
+  const usable=ok.filter(r=>r.d.closes && r.d.closes.length>30 && !r.d.manual);
+  const spy=state.mkt['SPY'];
+  if(usable.length<1 || !spy || !spy.closes){ el.style.display='none'; return; }
+  el.style.display='block';
+  const N=Math.min(252, spy.closes.length, ...usable.map(r=>r.d.closes.length));
+  const port=[];
+  for(let i=0;i<N;i++){
+    let v=0;
+    for(const r of usable){
+      const c=r.d.closes[r.d.closes.length-N+i];
+      const conv=convert(r.h.shares*c, r.d.currency);
+      v+=conv!=null?conv:0;
+    }
+    port.push(v);
+  }
+  const spySlice=spy.closes.slice(-N);
+  const bench=spySlice.map(v=>v/spySlice[0]*port[0]);
+  const w=560,h=180,pad=4;
+  const all=port.concat(bench);
+  const min=Math.min(...all), max=Math.max(...all), rng=max-min||1;
+  const X=i=>(pad+i/(N-1)*(w-2*pad)).toFixed(1);
+  const Y=v=>(h-pad-(v-min)/rng*(h-2*pad)).toFixed(1);
+  const mk=a=>a.map((v,i)=>`${X(i)},${Y(v)}`).join(' ');
+  const pRet=(port[N-1]/port[0]-1)*100, bRet=(bench[N-1]/bench[0]-1)*100;
+  const cs=csym(state.baseCur);
+  const pCol=pRet>=bRet?'var(--up)':'var(--gold)';
+  CHART_CTX['ph']={n:N, w, h, pad, min, rng, t:spy.times.slice(-N),
+    series:[{name:'your portfolio', vals:port, cur:cs},{name:'S&P 500', vals:bench, cur:cs}]};
+  el.innerHTML=`<h2>📈 Your portfolio vs the S&amp;P 500 — last ${N} trading days <span style="font-weight:400;text-transform:none;letter-spacing:0">— hover the chart for exact dates &amp; values</span></h2>
+  <div class="chartwrap">
+  <svg viewBox="0 0 ${w} ${h}" onmousemove="chartMove(event,'ph')" onmouseleave="chartLeave('ph')">
+    <polyline points="${mk(bench)}" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-dasharray="4,4"/>
+    <polyline points="${mk(port)}" fill="none" stroke="${pCol}" stroke-width="2.2"/>
+    <line id="chx-ph" x1="0" x2="0" y1="${pad}" y2="${h-pad}" stroke="var(--text)" stroke-width="1" opacity="0"/>
+    <circle id="chd-ph-0" r="3.5" fill="${pCol}" stroke="var(--bg)" stroke-width="1.5" opacity="0"/>
+    <circle id="chd-ph-1" r="3" fill="var(--dim)" stroke="var(--bg)" stroke-width="1.5" opacity="0"/>
+  </svg>
+  <div class="ctip" id="ctip-ph"></div></div>
+  <div class="legend"><span><i style="background:${pCol}"></i>your holdings: <b class="${cls(pRet)}">${sign(pRet)}%</b></span>
+  <span><i style="background:var(--dim)"></i>same money in S&amp;P 500: <b class="${cls(bRet)}">${sign(bRet)}%</b></span>
+  <span style="margin-left:auto">now: ${cs}${fmt(port[N-1])}</span></div>
+  <div style="font-size:12px;color:var(--dim);margin-top:8px;line-height:1.6">
+  ${pRet>=bRet
+    ? `Your current mix <b class="u">beat the index by ${fmt(pRet-bRet,1)}%</b> over this period. Enjoy it — and stay humble: very few portfolios beat the index every year.`
+    : `Your current mix <b>trailed the index by ${fmt(bRet-pRet,1)}%</b> over this period. No shame — most professionals trail it too. It's still worth asking: which holding caused the gap (check Weight × P/L% in the table above), and would you buy it again today?`}
+  Honest fine print: this assumes you held your <i>current</i> shares for the whole period (it ignores when you actually bought) and converts at today's FX rate. Manual-price tickers are excluded.</div>`;
+}
+
+function renderCorr(){
+  const el=document.getElementById('portCorr');
+  const cands=state.tickers.filter(t=>state.data[t]&&state.data[t].closes&&state.data[t].closes.length>80&&!state.data[t].manual);
+  if(cands.length<2){ el.style.display='none'; return; }
+  el.style.display='block';
+  const rets={};
+  for(const t of cands) rets[t]=dailyReturns(state.data[t].closes,253);
+  const pairs=[];
+  for(let i=0;i<cands.length;i++) for(let j=i+1;j<cands.length;j++){
+    const c=pearson(rets[cands[i]],rets[cands[j]]);
+    if(c!=null) pairs.push({a:cands[i],b:cands[j],c});
+  }
+  if(!pairs.length){ el.style.display='none'; return; }
+  pairs.sort((x,y)=>y.c-x.c);
+  const dupes=pairs.filter(p=>p.c>0.85);
+  const show=pairs.slice(0,8);
+  el.innerHTML=`<h2>🔗 Correlation check — are you as diversified as you think?</h2>
+  <div style="font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:10px">Correlation measures how much two holdings move together (1.00 = identical twins, 0 = unrelated, negative = opposite). Two highly-correlated funds are effectively <b>one bet bought twice</b> — fine if intentional, dangerous if you thought they protected each other.</div>
+  <table><thead><tr><th>Pair</th><th>Correlation</th><th>Reading</th></tr></thead><tbody>
+  ${show.map(p=>`<tr><td class="sym">${p.a} × ${p.b}</td><td>${fmt(p.c,2)}</td><td style="text-align:right">${p.c>0.85?'<span class="d">near-identical — one bet twice</span>':p.c>0.6?'<span style="color:var(--gold)">strongly linked</span>':p.c>0.3?'somewhat linked':p.c>-0.2?'<span class="u">independent — real diversification</span>':'<span class="u">opposite — natural hedge</span>'}</td></tr>`).join('')}</tbody></table>
+  ${dupes.length?`<div class="warnbox" style="margin-top:10px">⚠ ${dupes.map(p=>`<b>${p.a}</b> and <b>${p.b}</b> move ${fmt(p.c*100,0)}% together`).join('; ')}. If you hold them for different reasons, check those reasons still differ.</div>`:''}
+  <div style="font-size:11px;color:var(--dim);margin-top:8px">Computed from the last year of daily moves. Foreign-market tickers trade on different calendars, so their correlations are approximate.</div>`;
+}
+/* ================= stock ideas scanner ================= */
+/* 24 quality candidates spread across sectors the user's tech-heavy portfolio under-owns */
+const IDEAS=[
+  ['LLY','Eli Lilly — weight-loss & diabetes drugs'],['UNH','UnitedHealth — US health insurance'],
+  ['JNJ','Johnson & Johnson — pharma & medtech'],['ABBV','AbbVie — dividend pharma'],
+  ['V','Visa — payment network toll-booth'],['MA','Mastercard — payment network'],
+  ['JPM','JPMorgan — largest US bank'],['SPGI','S&P Global — ratings & indices'],
+  ['COST','Costco — membership retail'],['WMT','Walmart — defensive retail'],
+  ['PG','Procter & Gamble — consumer staples'],['KO','Coca-Cola — dividend staple'],
+  ['XOM','ExxonMobil — energy major'],['CVX','Chevron — energy + dividend'],
+  ['CAT','Caterpillar — infrastructure machinery'],['LIN','Linde — industrial gases'],
+  ['HD','Home Depot — housing & repair'],['ORCL','Oracle — enterprise cloud/AI'],
+  ['CRM','Salesforce — enterprise software'],['ADBE','Adobe — creative software'],
+  ['NFLX','Netflix — streaming'],['ASML','ASML — chipmaking monopoly tools'],
+  ['AVGO','Broadcom — AI networking chips'],['VIG','Vanguard Dividend Growth ETF']
+];
+async function scanIdeas(){
+  if(state.ideas.loading) return;
+  const btn=document.getElementById('ideasBtn'), out=document.getElementById('ideasOut');
+  state.ideas.loading=true; btn.disabled=true;
+  const cands=IDEAS.filter(([s])=>!state.tickers.includes(s));
+  const got=[];
+  let done=0;
+  await pool(cands, 3, async ([s,desc])=>{
+    const r=await fetchChart(s,'1y');
+    done++; btn.textContent=`Scanning… ${done}/${cands.length}`;
+    if(r.ok){ const d=parse(s,r.res); got.push({s,desc,d}); }
+  });
+  state.ideas={at:Date.now(), loading:false, list:got};
+  btn.disabled=false; btn.textContent='🔍 Re-scan ideas';
+  renderIdeas();
+}
+function renderIdeas(){
+  const out=document.getElementById('ideasOut');
+  const L=state.ideas.list;
+  if(!L||!L.length){ out.innerHTML='<div class="loading errtxt">Scan failed — relays busy. Try again in a minute.</div>'; return; }
+  const ranked=L.map(x=>{ const r=recoOf(x.d); return {...x, r, key:r.lt.score*2+r.st.score}; })
+    .sort((a,b)=>b.key-a.key).slice(0,10);
+  out.innerHTML=`<table style="margin-top:12px"><thead><tr><th>#</th><th>Ticker</th><th style="text-align:left">What it is</th><th>Price</th><th>1Y %</th><th>Yield</th><th>📈 Months</th><th>📅 Weeks</th><th></th></tr></thead><tbody>
+  ${ranked.map((x,i)=>`<tr>
+    <td>${i+1}</td><td class="sym">${x.s}</td>
+    <td style="text-align:left;white-space:normal;font-family:var(--ui);font-size:12px;color:var(--dim)">${esc(x.desc)}</td>
+    <td>$${fmt(x.d.price)}</td>
+    <td class="${x.d.r1y!=null?cls(x.d.r1y):''}">${x.d.r1y!=null?sign(x.d.r1y)+'%':'—'}</td>
+    <td>${x.d.yield>0?fmt(x.d.yield,1)+'%':'—'}</td>
+    <td><span class="chip ${x.r.lt.v.chip}">${x.r.lt.v.word} ${x.r.lt.score}</span></td>
+    <td><span class="chip ${x.r.st.v.chip}">${x.r.st.v.word} ${x.r.st.score}</span></td>
+    <td><button class="btn sm gold" onclick="quickAdd('${x.s}')">+ Watch</button></td></tr>
+    <tr><td></td><td colspan="8" style="text-align:left;white-space:normal;font-size:11.5px;color:var(--dim);font-family:var(--ui)">${esc(([...x.r.lt.parts].sort((a,b)=>Math.abs(b.pts)-Math.abs(a.pts))[0]||{}).why||'').slice(0,220)}</td></tr>`).join('')}
+  </tbody></table>
+  <div class="focus-msg">Why these 10: ranked by the same long-term trend score as your watchlist (price vs 200-day average, golden cross, 52-week position, momentum, dividends) across a fixed universe of 24 large, profitable, sector-diverse companies. The scan sees <b>only charts</b> — before buying anything, check what the business earns, what it costs (P/E), and read its recent news. Click <b>+ Watch</b> to track one and get its full analysis, trade plan and backtest. Not financial advice.</div>`;
+}
+
+/* ================= morning briefing ================= */
+function renderBrief(){
+  const el=document.getElementById('brief');
+  const today=new Date().toDateString();
+  if(state.briefDismissed===today){ el.className='brief'; return; }
+  const loaded=state.tickers.filter(t=>state.data[t]);
+  if(!loaded.length){ el.className='brief'; return; }
+  const bits=[];
+  /* portfolio day move */
+  const rows=heldRows().filter(r=>!r.missingFx);
+  if(rows.length){
+    const day=rows.reduce((a,r)=>a+(r.day||0),0);
+    bits.push(`Your portfolio is <b class="${cls(day)}">${sign(day)} ${esc(state.baseCur)}</b> today.`);
+  }
+  /* biggest mover */
+  let big=null;
+  for(const t of loaded){ const d=state.data[t]; if(!big||Math.abs(d.chgPct)>Math.abs(state.data[big].chgPct)) big=t; }
+  if(big){ const d=state.data[big]; bits.push(`Biggest mover: <b>${big}</b> <span class="${cls(d.chgPct)}">${sign(d.chgPct)}%</span>.`); }
+  /* alerts */
+  const hits=state.tickers.filter(t=>alertHit(t));
+  if(hits.length) bits.push(`🔔 Price alert${hits.length>1?'s':''} triggered: <b>${hits.join(', ')}</b> — worth a look first.`);
+  /* verdict flips vs last visit */
+  const flips=[];
+  for(const t of loaded){
+    const d=state.data[t]; if(d.manual) continue;
+    const r=recoOf(d), prev=state.lastVerdicts[t];
+    if(prev && (prev.st!==r.st.v.word || prev.lt!==r.lt.v.word)){
+      if(prev.st!==r.st.v.word) flips.push(`${t} short-term ${prev.st} → <b>${r.st.v.word}</b>`);
+      if(prev.lt!==r.lt.v.word) flips.push(`${t} long-term ${prev.lt} → <b>${r.lt.v.word}</b>`);
+    }
+    state.lastVerdicts[t]={st:r.st.v.word, lt:r.lt.v.word};
+  }
+  if(flips.length) bits.push(`Signal changes since your last visit: ${flips.join(' · ')}.`);
+  const m=computeMood();
+  if(m) bits.push(`Market mood: <b style="color:${m.label.col}">${Math.round(m.score)} — ${m.label.word}</b> <button class="btn sm" onclick="switchTab('mood')">why?</button>`);
+  saveState();
+  if(!bits.length){ el.className='brief'; return; }
+  el.className='brief show';
+  el.innerHTML=`<div class="bhead"><b>☀️ Briefing — ${new Date().toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'})}</b>
+  <button class="btn sm" onclick="dismissBrief()" title="hide until tomorrow">✕</button></div>${bits.join(' ')}`;
+}
+function dismissBrief(){ state.briefDismissed=new Date().toDateString(); saveState(); renderBrief(); }
+
+/* ================= desktop notifications ================= */
+function toggleNotify(){
+  const on=document.getElementById('notif').checked;
+  if(on && 'Notification' in window && Notification.permission!=='granted'){
+    Notification.requestPermission().then(p=>{
+      if(p!=='granted'){ document.getElementById('notif').checked=false; state.notify=false; saveState(); }
+    });
+  }
+  state.notify=on; saveState();
+}
+function beep(){
+  try{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value=880; g.gain.value=0.08;
+    o.start(); o.stop(ctx.currentTime+0.18);
+    setTimeout(()=>ctx.close(), 400);
+  }catch(e){}
+}
+function checkAlerts(){
+  for(const t of state.tickers){
+    const hit=alertHit(t);
+    if(!hit){ delete state.notified[t]; continue; }
+    if(state.notified[t]===hit) continue;
+    state.notified[t]=hit;
+    if(state.notify && 'Notification' in window && Notification.permission==='granted'){
+      const d=state.data[t], a=state.alerts[t];
+      try{ new Notification(`Longview: ${t} alert`, {body:`${t} at ${csym(d.currency)}${fmt(d.price)} — crossed your "${hit}" level of ${fmt(hit==='above'?a.above:a.below)}.`}); }catch(e){}
+      beep();
+    }
+  }
+}
+
+/* ================= printable report ================= */
+function makeReport(){
+  const rows=heldRows();
+  const ok=rows.filter(r=>!r.missingFx);
+  const cs=state.baseCur+' ';
+  const val=ok.reduce((a,r)=>a+r.val,0), cost=ok.reduce((a,r)=>a+r.cost,0), inc=ok.reduce((a,r)=>a+(r.inc||0),0);
+  const m=computeMood();
+  const pc=(n)=>`<span class="${n>=0?'pu':'pd'}">${(n>=0?'+':'')+fmt(n)}</span>`;
+  const lines=state.tickers.filter(t=>state.data[t]&&!state.data[t].manual).map(t=>{
+    const d=state.data[t], r=recoOf(d);
+    const topST=[...r.st.parts].sort((a,b)=>Math.abs(b.pts)-Math.abs(a.pts))[0];
+    const topLT=[...r.lt.parts].sort((a,b)=>Math.abs(b.pts)-Math.abs(a.pts))[0];
+    return `<tr><td>${esc(t)}</td><td>${csym(d.currency)}${fmt(d.price)}</td><td>${pc(d.chgPct)}%</td><td>${d.r1y!=null?pc(d.r1y)+'%':'—'}</td>
+    <td>${r.st.v.word} (${r.st.score})</td><td>${r.lt.v.word} (${r.lt.score})</td></tr>
+    <tr><td></td><td colspan="5" class="small">Short-term driver: ${esc(topST?topST.what:'—')}. Long-term driver: ${esc(topLT?topLT.what:'—')}.${state.notes[t]?' Your note: '+esc(state.notes[t]).slice(0,160):''}</td></tr>`;
+  }).join('');
+  document.getElementById('printReport').innerHTML=`
+  <h1>Longview — Investment Report</h1>
+  <div class="small">Generated ${new Date().toLocaleString()} · prices may be ~15 min delayed · technical signals only — not financial advice</div>
+  ${ok.length?`<h2>Portfolio (${esc(state.baseCur)})</h2>
+  <table><tr><th>Total value</th><th>Total cost</th><th>P/L</th><th>P/L %</th><th>Est. dividends/yr</th></tr>
+  <tr><td>${cs}${fmt(val)}</td><td>${cs}${fmt(cost)}</td><td>${pc(val-cost)}</td><td>${cost>0?pc((val-cost)/cost*100):'—'}%</td><td>${cs}${fmt(inc)}</td></tr></table>
+  <table style="margin-top:6px"><tr><th>Ticker</th><th>Shares</th><th>Value</th><th>Weight</th><th>P/L %</th></tr>
+  ${ok.sort((a,b)=>b.val-a.val).map(r=>`<tr><td>${r.t}</td><td>${fmt(r.h.shares,r.h.shares%1?2:0)}</td><td>${cs}${fmt(r.val)}</td><td>${val>0?fmt(r.val/val*100,1):'—'}%</td><td>${r.cost>0?pc((r.val-r.cost)/r.cost*100):'—'}%</td></tr>`).join('')}</table>`:''}
+  ${m?`<h2>Market mood</h2><div>${Math.round(m.score)}/100 — ${m.label.word}. Components: ${m.comps.map(c=>`${esc(c.name)} ${Math.round(c.score)}`).join(' · ')}.</div>`:''}
+  <h2>Watchlist signals</h2>
+  <table><tr><th>Ticker</th><th>Price</th><th>Day %</th><th>1 yr %</th><th>Weeks</th><th>Months</th></tr>${lines}</table>
+  <div class="small" style="margin-top:10px">Verdict scale: ≥68 BUY · 56–67 LEAN BUY · 45–55 HOLD · 33–44 REDUCE · &lt;33 SELL — computed from price-based indicators (trend, momentum, range, volatility, dividends). Full reasoning available in the app.</div>`;
+  window.print();
+}
+
+/* ================= tabs + actions ================= */
+function switchTab(name){
+  if(name==='dash') name='watch';
+  state.tab=name; saveState();
+  const pane = (name==='watch'||name==='held') ? 'dash' : name;
+  for(const n of ['dash','mood','port'])
+    document.getElementById('tab-'+n).className='tabpane'+(n===pane?' act':'');
+  for(const n of ['watch','held','mood','port'])
+    document.getElementById('tb-'+n).className='tabbtn'+(n===name?' act':'');
+  if(name==='mood') renderMood();
+  else if(name==='port') renderPortfolio();
+  else renderWatchlist();
+}
+const isHeld = t => { const h=state.holdings[t]; return !!(h && h.shares>0); };
+function setBaseCur(c){ state.baseCur=c; saveState(); ensureFx().then(()=>{ renderPortfolio(); renderSummary(); }); renderPortfolio(); }
+function saveSizing(){
+  state.accountSize=+document.getElementById('acctsz').value||0;
+  state.riskPct=Math.max(0.5,Math.min(10,+document.getElementById('riskpct').value||2));
+  saveState();
+  if(state.sel&&state.data[state.sel]) renderPlan(state.data[state.sel]);
+}
+function select(t){
+  if(!state.data[t])return;
+  state.sel=t; saveState();
+  renderWatchlist(); renderDetail(); renderReco();
+  state.newsSel=t; renderNews(); loadNews(t);
+}
+function setRange(r){ state.range=r; saveState(); renderDetail(); }
+function saveHolding(t){
+  const had=isHeld(t);
+  state.holdings[t]={shares:+document.getElementById('hs').value||0,cost:+document.getElementById('hc').value||0};
+  saveState(); ensureFx().then(renderSummary); renderSummary(); renderDetail(); renderWatchlist();
+  if(!had && isHeld(t)) setStatus(t+' moved to the 💹 Holdings tab (it has shares now).');
+}
+function saveAlert(t){ state.alerts[t]={above:+document.getElementById('aa').value||0,below:+document.getElementById('ab').value||0}; saveState(); renderAll(); }
+function setPlanAlert(t, side, v){
+  state.alerts[t]=state.alerts[t]||{};
+  state.alerts[t][side]=v;
+  saveState(); renderAll();
+  setStatus(`🔔 ${t}: alert set ${side==='above'?'above':'below'} ${fmt(v)} — you'll see the bell here${state.notify?' and get a desktop notification':''} when it triggers.`);
+}
+function calcWhatIf(t){
+  const d=state.data[t], out=document.getElementById('wi-out');
+  const amt=+document.getElementById('wi-amt').value||0;
+  if(!d||amt<=0){ out.innerHTML='<span class="errtxt">Enter an amount first.</span>'; return; }
+  const cs=csym(d.currency);
+  const sh=amt/d.price;
+  const g=1+d.cagr/100;
+  const v5=amt*Math.pow(g,5), v10=amt*Math.pow(g,10);
+  const divYr=d.yield>0?amt*d.yield/100:0;
+  out.innerHTML=`${cs}${fmt(amt)} buys <b>${fmt(sh,sh<10?4:2)} shares</b> at ${cs}${fmt(d.price)}.<br>
+  At its own historical pace (${sign(d.cagr,1)}%/yr): ≈ <b class="${cls(d.cagr)}">${cs}${fmt(v5)}</b> in 5 years · ≈ <b class="${cls(d.cagr)}">${cs}${fmt(v10)}</b> in 10 years.
+  ${divYr>0?`<br>Plus dividends ≈ <span style="color:var(--gold)">${cs}${fmt(divYr)}/year</span> at the current ${fmt(d.yield,1)}% yield.`:''}
+  <br><span style="color:var(--dim);font-size:11px">Pure extrapolation of the past ${fmt(d.years,1)} years — real results will differ, possibly a lot. Compare: the same money at an index-like 10%/yr ≈ ${cs}${fmt(amt*Math.pow(1.10,5))} in 5y.</span>`;
+}
+/* copy a shareable text summary of the selected stock to the clipboard */
+async function copySummary(t){
+  const d=state.data[t]; if(!d) return;
+  const r=recoOf(d), p=tradePlanOf(d);
+  const lines=[
+    `${t} — ${d.name}`,
+    `Price ${csym(d.currency)}${fmt(d.price)} (${sign(d.chgPct)}% today) · 1Y ${d.r1y!=null?sign(d.r1y)+'%':'—'} · yield ${d.yield>0?fmt(d.yield,1)+'%':'—'}`,
+    `Signals: Days ${r.d1.v.word} ${r.d1.score} | Weeks ${r.st.v.word} ${r.st.score} | Months ${r.lt.v.word} ${r.lt.score} | Years ${r.yr.v.word} ${r.yr.score}`,
+    p?`Plan: entry ~${fmt(p.entry)} · stop ${fmt(p.stop)} · target ${fmt(p.target)} (R:R ${fmt(p.rr,1)}:1)`:'',
+    `RSI ${d.rsi!=null?fmt(d.rsi,0):'—'} · vs 200d avg ${d.sma200?sign((d.price/d.sma200-1)*100,1)+'%':'—'} · max DD ${d.maxDD!=null?fmt(d.maxDD,0)+'%':'—'}`,
+    `(chart signals only — not financial advice) · Longview ${new Date().toLocaleDateString()}`
+  ].filter(Boolean);
+  try{ await navigator.clipboard.writeText(lines.join('\n')); setStatus('📋 Summary of '+t+' copied — paste it anywhere.'); }
+  catch(e){ setStatus('Clipboard blocked by the browser — select & copy manually.', true); }
+}
+function saveNote(t){ state.notes[t]=document.getElementById('nt').value; saveState(); }
+function saveGroup(t){ const g=document.getElementById('hg').value.trim(); if(g) state.groups[t]=g; else delete state.groups[t]; saveState(); renderWatchlist(); }
+
+async function loadOne(t){
+  state.status[t]='loading'; renderWatchlist();
+  const r = await fetchChart(t,'5y');
+  if(r.ok){ const d=parse(t,r.res); d.histAt=Date.now(); state.data[t]=d; state.status[t]='ok'; saveCache(); }
+  else state.status[t] = r.notFound ? 'notfound' : (state.data[t]?'ok':'error');
+  renderAll();
+  return r.ok;
+}
+
+/* ================= refresh engine: spark-batched, cache-first, auto-retry ================= */
+let firstRun=true, refreshing=false;
+async function refreshFullOne(t){
+  const cur=state.data[t];
+  const r=await fetchChart(t,'5y');
+  if(r.ok){
+    const d=parse(t,r.res); d.histAt=Date.now(); d.stale=false;
+    state.data[t]=d; state.status[t]='ok'; return true;
+  }
+  if(r.notFound){ state.status[t]='notfound'; return false; }
+  if(cur){ cur.stale=true; state.status[t]='ok'; return true; }  /* keep showing saved data */
+  state.status[t]='error'; return false;
+}
+
+async function refreshAll(quiet){
+  if(refreshing) return;
+  refreshing=true;
+  clearTimeout(autoRetryTimer);
+  try{
+    if(firstRun){
+      setStatus('Speed-testing free data relays…');
+      const ms=await rankRelays();
+      firstRun=false;
+      if(ms==null && !Object.keys(state.data).length){
+        setStatus('No data relay reachable — check your internet / firewall / ad-blocker, then press Refresh.', true);
+        state.tickers.forEach(t=>state.status[t]='error'); renderAll(); refreshing=false; return;
+      }
+    }
+    if(!quiet) setStatus('Updating quotes…');
+    /* classify: tickers with fresh cached history only need the cheap batched price update */
+    const fullL=[], lightL=[];
+    for(const t of state.tickers){
+      const d=state.data[t];
+      if(d && d.manual){ state.status[t]='ok'; continue; }
+      const needFull = !d || d.lite || !d.histAt || (Date.now()-d.histAt)>FULL_TTL || !d.closes || d.closes.length<260;
+      (needFull?fullL:lightL).push(t);
+      if(!d) state.status[t]='loading';
+    }
+    renderWatchlist();
+    /* 0) instant seed: anything with NO data yet gets prices from a couple of batched
+       requests right away, so the screen never sits full of "couldn't fetch" rows */
+    const bare=fullL.filter(t=>!state.data[t]);
+    if(bare.length){
+      setStatus(`Quick-loading ${bare.length} tickers in batches…`);
+      await sparkSeed(bare);
+      derivePortfolioHoldings();   /* holdings appear the instant prices land (fallback FX) */
+      renderAll();
+    }
+    /* 1) ONE batched request covers light tickers + market gauges + FX rates */
+    const mktLight=MKT_SYMS.filter(s=>{ const d=state.mkt[s]; return d && d.histAt && (Date.now()-d.histAt)<=FULL_TTL; });
+    const fxPairs=neededCurrencies().map(c=>c+'USD=X');
+    const sparkSyms=[...lightL, ...mktLight, ...fxPairs];
+    if(sparkSyms.length){
+      const sp=await sparkFetch(sparkSyms);
+      for(const t of lightL){
+        const upd = sp[t] ? applySpark(state.data[t], sp[t]) : null;
+        if(upd){ upd.stale=false; state.data[t]=upd; state.status[t]='ok'; }
+        else fullL.push(t);   /* batched miss → individual fetch below */
+      }
+      for(const s of mktLight){ const upd=sp[s]?applySpark(state.mkt[s],sp[s]):null; if(upd) state.mkt[s]=upd; }
+      for(const c of neededCurrencies()){
+        const e=sp[c+'USD=X'];
+        if(e && e.close){ const arr=e.close.filter(v=>v!=null); if(arr.length) state.fx[c]={rate:arr[arr.length-1], at:Date.now()}; }
+      }
+      renderAll();
+    }
+    /* 2) individual full-history downloads, gently staggered to avoid relay rate-limits */
+    const failed=[];
+    let done=0;
+    if(fullL.length){
+      await pool([...new Set(fullL)], 2, async t=>{
+        await new Promise(res=>setTimeout(res, 120+Math.random()*280));
+        const ok=await refreshFullOne(t);
+        done++;
+        if(fullL.length>3) setStatus(`Downloading price history ${done}/${new Set(fullL).size}… (one-time per day, then cached)`);
+        if(!ok && state.status[t]==='error') failed.push(t);
+        renderAll();
+      });
+    }
+    await ensureMkt();
+    await ensureFx();
+    derivePortfolioHoldings();
+    saveCache();
+    checkAlerts();
+    const lite=state.tickers.filter(t=>state.data[t]&&state.data[t].lite).length;
+    const stale=state.tickers.filter(t=>state.data[t]&&state.data[t].stale).length;
+    const errs=state.tickers.filter(t=>!state.data[t]&&state.status[t]!=='notfound').length;
+    if(!errs && !stale && !lite){ setStatus('All quotes fresh ✓ '+new Date().toLocaleTimeString()); autoRetryDelay=8; }
+    renderAll(); renderBrief();
+    if(state.tab==='mood') renderMood();
+    if(state.tab==='port') renderPortfolio();
+    if(state.sel && state.data[state.sel] && !state.newsSel){ state.newsSel=state.sel; renderNews(); loadNews(state.sel); }
+    scheduleAutoRetry(errs, lite, stale);
+  } finally { refreshing=false; }
+}
+
+/* never-give-up retry: as long as anything is missing, incomplete (lite) or stale,
+   keep re-fetching in the background — backing off gently from 8s up to 60s */
+let autoRetryTimer=null, autoRetryDelay=8;
+function scheduleAutoRetry(errs, lite, stale){
+  clearTimeout(autoRetryTimer);
+  if(!errs && !lite && !stale) return;
+  const d=autoRetryDelay;
+  autoRetryDelay=Math.min(60, Math.round(autoRetryDelay*1.7));
+  const what=[errs?`${errs} not fetched`:'', lite?`${lite} basic-data-only`:'', stale?`${stale} stale`:''].filter(Boolean).join(', ');
+  setStatus(`${what} — retrying automatically in ${d}s (and again until everything loads). Your saved data is safe.`, !!errs);
+  autoRetryTimer=setTimeout(()=>refreshAll(true), d*1000);
+}
+
+async function ensureMkt(){
+  const need=MKT_SYMS.filter(s=>{
+    const d=state.mkt[s];
+    return !d || !d.histAt || (Date.now()-d.histAt)>FULL_TTL;
+  });
+  await pool(need, 2, async s=>{
+    const r=await fetchChart(s,'1y');
+    if(r.ok){ const d=parse(s,r.res); d.histAt=Date.now(); state.mkt[s]=d; }
+  });
+}
+
+function renderAll(){ renderTape(); renderSummary(); renderWatchlist(); renderDetail(); renderReco(); }
+
+function toggleAuto(){
+  const on=document.getElementById('auto').checked;
+  if(state.autoTimer){clearInterval(state.autoTimer);state.autoTimer=null;}
+  if(on) state.autoTimer=setInterval(()=>refreshAll(true), 60000);
+}
+function retry(t){ loadOne(t); }
+function manualRow(t){
+  const span=document.getElementById('man-'+t);
+  if(!span) return;
+  span.innerHTML = ` <input type="number" step="any" min="0" id="mp-${t}" placeholder="price" style="width:100px;padding:4px 8px"> <button class="btn sm gold" onclick="event.stopPropagation();saveManual('${t}')">OK</button>`;
+}
+function saveManual(t){
+  const p=+document.getElementById('mp-'+t).value;
+  if(!p||p<=0){ alert('Enter a valid price.'); return; }
+  state.data[t]={sym:t,price:p,prev:p,chg:0,chgPct:0,closes:[],highs:[],lows:[],vols:[],times:[],divs:[],hi:p,lo:p,rangePos:50,rsi:null,sma20:null,sma50:null,sma200:null,macd:null,macdSig:null,macdHist:null,volAnnual:null,volRatio:null,atr:null,maxDD:null,r1m:null,r3m:null,r6m:null,r1y:null,rAll:null,cagr:null,years:0,yield:0,div12:0,name:t+' (manual price)',currency:t.endsWith('.BK')?'THB':'USD',manual:true};
+  state.status[t]='ok';
+  renderAll();
+}
+function quickAdd(s){
+  if(state.tickers.includes(s)) return;
+  state.tickers.push(s); saveState();
+  renderDirectory(); loadOne(s);
+}
+async function addTicker(){
+  const s=document.getElementById('addSym').value.trim().toUpperCase();
+  if(!s||state.tickers.includes(s)) return;
+  state.tickers.push(s); document.getElementById('addSym').value='';
+  saveState(); renderDirectory(); renderNews();
+  if(state.tab!=='watch') switchTab('watch');   /* new tickers land on the Watchlist tab */
+  const ok=await loadOne(s);
+  if(!ok && state.status[s]==='notfound'){
+    state.tickers=state.tickers.filter(x=>x!==s); delete state.status[s]; saveState(); renderAll(); renderDirectory(); renderNews();
+    alert(s+' not found on Yahoo Finance.\nTip: Thai stocks need .BK (e.g. PTT.BK), Tokyo .T, Hong Kong .HK, London .L');
+  }
+}
+function removeTicker(t){
+  state.tickers=state.tickers.filter(x=>x!==t);
+  delete state.data[t]; delete state.status[t]; delete state.news[t]; delete state.groups[t];
+  if(state.sel===t)state.sel=null;
+  if(state.newsSel===t)state.newsSel=null;
+  saveState(); saveCache();
+  renderAll(); renderDirectory(); renderNews();
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify({tickers:state.tickers,notes:state.notes,holdings:state.holdings,alerts:state.alerts,groups:state.groups,baseCur:state.baseCur,riskPct:state.riskPct,accountSize:state.accountSize},null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='longview-data.json'; a.click();
+}
+function importData(e){
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ const j=JSON.parse(r.result);
+    state.tickers=Array.isArray(j.tickers)?j.tickers:state.tickers; state.notes=j.notes||{}; state.holdings=j.holdings||{}; state.alerts=j.alerts||{}; state.groups=j.groups||{};
+    if(j.baseCur)state.baseCur=j.baseCur; if(j.riskPct)state.riskPct=j.riskPct; if(j.accountSize)state.accountSize=j.accountSize;
+    saveState();
+    renderDirectory(); renderNews(); refreshAll(); }catch(err){alert('Invalid file');} };
+  r.readAsText(f);
+}
+
+/* ================= init ================= */
+document.getElementById('addSym').addEventListener('keydown',e=>{if(e.key==='Enter')addTicker();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSummary();});
+loadState();
+loadCache();
+/* first run: automatically import the real portfolio from the 11 June 2026 report */
+if(!state.portLoaded) loadMyPortfolio();
+document.getElementById('notif').checked=state.notify;
+renderDirectory();
+renderNews();
+renderAll();
+renderBrief();
+switchTab(state.tab||'dash');
+if(state.sel && state.data[state.sel]){ state.newsSel=state.sel; renderNews(); loadNews(state.sel); }
+refreshAll();
+
+/* deep links for the LINE menu:  …/TrackingStocks.html#report opens the summary,
+   #holdings / #watch / #mood / #portfolio jump straight to a tab. */
+function handleDeepLink(){
+  const h=(location.hash||'').toLowerCase().replace('#','');
+  if(!h) return;
+  if(h==='report'||h==='summary'){ switchTab('held'); setTimeout(openSummary, 1200); }
+  else if(h==='holdings'||h==='held'){ switchTab('held'); }
+  else if(h==='watch'||h==='watchlist'){ switchTab('watch'); }
+  else if(h==='ideas'){ switchTab('watch'); setTimeout(()=>{ const c=document.getElementById('ideasCard'); if(c) c.scrollIntoView(); scanIdeas(); }, 600); }
+  else if(h==='mood'||h==='market'){ switchTab('mood'); }
+  else if(h==='portfolio'||h==='port'){ switchTab('port'); }
+}
+handleDeepLink();
+window.addEventListener('hashchange', handleDeepLink);
+</script>
+</body>
+</html>
