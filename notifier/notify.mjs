@@ -8,9 +8,11 @@ const dry = process.argv.includes('--dry');
 /* Holdings come from the PORTFOLIO_JSON secret when running in GitHub Actions (keeps your
    financials OUT of the public repo). Falls back to the local portfolio.json for dry-runs
    and local/Task-Scheduler use. */
-const cfg = process.env.PORTFOLIO_JSON
-  ? JSON.parse(process.env.PORTFOLIO_JSON)
-  : JSON.parse(await readFile(new URL('./portfolio.json', import.meta.url), 'utf8'));
+const rawCfg = process.env.PORTFOLIO_JSON
+  ? process.env.PORTFOLIO_JSON
+  : await readFile(new URL('./portfolio.json', import.meta.url), 'utf8');
+/* strip a leading BOM (U+FEFF) — PowerShell can prepend one when uploading the secret */
+const cfg = JSON.parse(rawCfg.replace(/^﻿/, '').trim());
 
 /* weekend guard (markets closed). Manual runs (workflow_dispatch) and --dry bypass it so
    you can always fire a test. The scheduled cron still only sends Mon–Fri. */
