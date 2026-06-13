@@ -7,12 +7,22 @@
    Deploy:  wrangler deploy   (see SETUP.md) */
 import { buildDigest } from './digest.mjs';
 
-const DEFAULT_CFG_URL = 'https://raw.githubusercontent.com/Supakiat999/InvestmentReport/main/notifier/portfolio.json';
 let cached = null, cachedAt = 0;
 
+/* PowerShell/wrangler can prepend a BOM (U+FEFF) to a secret; scrub it (also breaks HTTP headers) */
+const clean = s => {
+  if (s == null) return s;
+  s = String(s);
+  while (s.length && (s.charCodeAt(0) === 0xFEFF || s.charCodeAt(0) === 0x200B)) s = s.slice(1);
+  return s.trim();
+};
+const tok = env => clean(env.LINE_CHANNEL_ACCESS_TOKEN);
+
 async function getCfg(env) {
-  const r = await fetch(env.PORTFOLIO_URL || DEFAULT_CFG_URL, { cf: { cacheTtl: 300 } });
-  return r.json();
+  /* holdings live in a PRIVATE Worker secret — never in the public repo */
+  if (env.PORTFOLIO_JSON) return JSON.parse(clean(env.PORTFOLIO_JSON));
+  if (env.PORTFOLIO_URL) { const r = await fetch(env.PORTFOLIO_URL, { cf: { cacheTtl: 300 } }); return r.json(); }
+  throw new Error('No PORTFOLIO_JSON secret set');
 }
 async function digestText(env) {
   if (cached && Date.now() - cachedAt < 5 * 60e3) return cached;   // 5-min cache
@@ -21,10 +31,10 @@ async function digestText(env) {
   return d.text;
 }
 async function pushLINE(env, text) {
-  if (!env.LINE_CHANNEL_ACCESS_TOKEN) return;
+  if (!tok(env)) return;
   await fetch('https://api.line.me/v2/bot/message/broadcast', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok(env)}` },
     body: JSON.stringify({ messages: [{ type: 'text', text }] })
   });
 }
@@ -36,8 +46,9 @@ async function pushTelegram(env, text) {
   });
 }
 async function lineSigOk(env, body, sig) {
-  if (!env.LINE_CHANNEL_SECRET || !sig) return false;
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.LINE_CHANNEL_SECRET),
+  const secret = clean(env.LINE_CHANNEL_SECRET);
+  if (!secret || !sig) return false;
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret),
     { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body));
   return btoa(String.fromCharCode(...new Uint8Array(mac))) === sig;
@@ -61,11 +72,12 @@ export default {
       const j = JSON.parse(body);
       ctx.waitUntil((async () => {
         for (const ev of j.events || []) {
-          if (ev.type !== 'message' || !ev.replyToken) continue;
+          /* any text message OR a rich-menu tap (postback) -> reply with the live report */
+          if (!ev.replyToken || (ev.type !== 'message' && ev.type !== 'postback')) continue;
           const text = await digestText(env);
           await fetch('https://api.line.me/v2/bot/message/reply', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}` },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok(env)}` },
             body: JSON.stringify({ replyToken: ev.replyToken, messages: [{ type: 'text', text }] })
           });
         }
