@@ -12,9 +12,11 @@ const cfg = process.env.PORTFOLIO_JSON
   ? JSON.parse(process.env.PORTFOLIO_JSON)
   : JSON.parse(await readFile(new URL('./portfolio.json', import.meta.url), 'utf8'));
 
-/* weekend guard (cron already limits to Mon–Fri, this is belt-and-braces) */
+/* weekend guard (markets closed). Manual runs (workflow_dispatch) and --dry bypass it so
+   you can always fire a test. The scheduled cron still only sends Mon–Fri. */
+const manual = process.argv.includes('--force') || process.env.GITHUB_EVENT_NAME === 'workflow_dispatch';
 const wd = new Date().getUTCDay();
-if (!dry && (wd === 0 || wd === 6)) { console.log('Weekend — skipping.'); process.exit(0); }
+if (!dry && !manual && (wd === 0 || wd === 6)) { console.log('Weekend — skipping.'); process.exit(0); }
 
 const d = await buildDigest(cfg);
 console.log('--- digest ---\n' + d.text + '\n--------------');
