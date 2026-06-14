@@ -7,3 +7,10 @@ notifier/.env
 portfolio-seed.js
 # rich menu image asset
 notifier/richmenu.png
+notifier/richmenu-preview.png
+# node deps for the menu image generator
+notifier/node_modules
+notifier/package.json
+notifier/package-lock.json
+# private handoff / project notes (keep local)
+HANDOFF.md
