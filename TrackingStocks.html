@@ -2743,10 +2743,14 @@ function handleDeepLink(){
   if(!h) return;
   if(h==='report'||h==='summary'){ switchTab('held'); setTimeout(openSummary, 1200); }
   else if(h==='holdings'||h==='held'){ switchTab('held'); }
-  else if(h==='watch'||h==='watchlist'){ switchTab('watch'); }
+  else if(h==='watch'||h==='watchlist'||h==='live'||h==='update'){ switchTab('watch'); }
   else if(h==='ideas'){ switchTab('watch'); setTimeout(()=>{ const c=document.getElementById('ideasCard'); if(c) c.scrollIntoView(); scanIdeas(); }, 600); }
   else if(h==='mood'||h==='market'){ switchTab('mood'); }
   else if(h==='portfolio'||h==='port'){ switchTab('port'); }
+  /* opened from the LINE menu → turn on live auto-refresh + fetch fresh data now */
+  const cb=document.getElementById('auto');
+  if(cb && !cb.checked){ cb.checked=true; toggleAuto(); }
+  refreshAll(true);
 }
 handleDeepLink();
 window.addEventListener('hashchange', handleDeepLink);
