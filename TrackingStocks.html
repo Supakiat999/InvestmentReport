@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stock Report — Stock Tracker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0E1B1E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stock Report">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -95,6 +101,9 @@ tbody tr.sel{background:var(--surface2);box-shadow:inset 3px 0 0 var(--gold)}
 .bell{font-size:11px}
 .stale{color:var(--gold);font-size:11px;cursor:help}
 .gfilter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.wlsearch{width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 12px;font-size:13px;font-family:var(--ui);margin-bottom:10px}
+.wlsearch:focus{outline:none;border-color:var(--gold)}
+.wlsearch::placeholder{color:var(--dim)}
 /* inline expandable quick-look shown under a watchlist row (tap the ▸ caret) */
 .rowtog{display:inline-block;width:15px;color:var(--dim);cursor:pointer;transition:transform .15s ease;user-select:none}
 .rowtog:hover{color:var(--gold)}
@@ -319,6 +328,7 @@ textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
 
   <div class="card">
     <h2>Watchlist <span style="font-weight:400;text-transform:none;letter-spacing:0">— click headers to sort, click a row for details</span></h2>
+    <input id="wlsearch" class="wlsearch" type="search" placeholder="🔍 Filter by ticker or name…" oninput="setSearch(this.value)" autocomplete="off">
     <div class="gfilter" id="gfilter"></div>
     <div id="wl"><div class="loading">Starting up…</div></div>
   </div>
@@ -1424,6 +1434,9 @@ function renderSnapshot(){
     items.push(`<div class="snap-i"><span class="snap-l">📊 Total P/L</span><span class="snap-v ${cls(uniVal-uniCost)}">${uniCost?sign((uniVal-uniCost)/uniCost*100,1)+'%':'—'}</span></div>`);
   }
   if(m) items.push(`<div class="snap-i"><span class="snap-l">🌡 Market</span><span class="snap-v" style="color:${m.label.col}">${Math.round(m.score)} ${m.label.word}</span></div>`);
+  const upd = state.lastRefresh ? new Date(state.lastRefresh).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—';
+  const live = document.getElementById('auto') && document.getElementById('auto').checked;
+  items.push(`<div class="snap-i"><span class="snap-l">🕒 Updated</span><span class="snap-v" style="font-size:14px">${upd}${live?' <span style="color:var(--up);font-size:11px">· live</span>':''}</span></div>`);
   if(!items.length){ el.className='snap'; el.innerHTML=''; return; }
   el.className='snap show';
   el.innerHTML=`<div class="snap-bar">${items.join('')}</div>`;
@@ -1443,10 +1456,13 @@ function miniChips(d){
 function heldVal(t){ const h=state.holdings[t], d=state.data[t]; if(!h||!d) return null; return convert(h.shares*d.price, d.currency); }
 function heldPlPct(t){ const h=state.holdings[t], d=state.data[t]; if(!h||!d||!h.cost) return null; return (d.price/h.cost-1)*100; }
 
+let wlSearch='';
+function setSearch(q){ wlSearch=(q||'').trim().toLowerCase(); renderWatchlist(); }
 function sortedTickers(){
   const wantHeld = state.tab==='held';
   let arr=state.tickers.filter(t=>isHeld(t)===wantHeld);
   if(state.groupFilter) arr=arr.filter(t=>(state.groups[t]||'')===state.groupFilter);
+  if(wlSearch) arr=arr.filter(t=>{ const d=state.data[t]; return t.toLowerCase().includes(wlSearch) || (d&&d.name&&d.name.toLowerCase().includes(wlSearch)); });
   if(!state.sortKey) return arr;
   const k=state.sortKey, dir=state.sortDir;
   return arr.sort((a,b)=>{
@@ -2745,6 +2761,7 @@ async function refreshAll(quiet){
     await ensureFx();
     derivePortfolioHoldings();
     saveCache();
+    state.lastRefresh=Date.now();
     checkAlerts();
     const lite=state.tickers.filter(t=>state.data[t]&&state.data[t].lite).length;
     const stale=state.tickers.filter(t=>state.data[t]&&state.data[t].stale).length;
