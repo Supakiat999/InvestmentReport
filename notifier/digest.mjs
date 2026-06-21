@@ -8,7 +8,8 @@ const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKi
 
 /* candidates for "ideas you don't own" — same universe as the tracker's scanner */
 export const IDEAS = ['LLY','UNH','JNJ','ABBV','V','MA','JPM','SPGI','COST','WMT','PG','KO',
-  'XOM','CVX','CAT','LIN','HD','ORCL','CRM','ADBE','NFLX','ASML','AVGO','VIG'];
+  'XOM','CVX','CAT','LIN','HD','ORCL','CRM','ADBE','NFLX','ASML','AVGO','VIG',
+  'MCD','PEP','ABT','HON','NEE','UNP'];
 
 /* ---------- data ---------- */
 async function sparkFetch(symbols, range = '1y', chunk = 8) {
@@ -136,7 +137,7 @@ export async function buildDigest(cfg) {
     day += conv(h.shares * (px - prev), h.currency) || 0;
     const chg = (px / prev - 1) * 100;
     movers.push({ s, chg });
-    if (d.closes.length > 60) { const v2 = verdicts(d.closes); if (v2.lt <= 38) weak.push(`${s} ${v2.ltWord} ${v2.lt}`); }
+    if (d.closes.length > 60) { const v2 = verdicts(d.closes); if (v2.lt <= 42) weak.push(`${s} ${v2.ltWord} ${v2.lt}`); }
   }
   movers.sort((a, b) => b.chg - a.chg);
   const cashB = (conv(cfg.cashTHB || 0, 'THB') || 0) + (conv(cfg.cashUSD || 0, 'USD') || 0);
@@ -163,25 +164,41 @@ export async function buildDigest(cfg) {
   /* market mood + ideas */
   const mood = moodOf(D);
   const ideas = ideaSyms.map(s => I[s] && I[s].closes.length > 200 ? { s, v: verdicts(I[s].closes) } : null)
-    .filter(Boolean).sort((a, b) => (b.v.lt * 2 + b.v.st) - (a.v.lt * 2 + a.v.st)).slice(0, 3);
+    .filter(Boolean).sort((a, b) => (b.v.lt * 2 + b.v.st) - (a.v.lt * 2 + a.v.st)).slice(0, 8);
 
-  /* compose */
+  /* compose — sectioned & numbered, plain text (LINE has no markdown) */
   const sym = base === 'THB' ? '฿' : base === 'USD' ? '$' : base + ' ';
   const th = new Date(Date.now() + 7 * 3600e3);
-  const L = [];
-  L.push(`📊 Longview ${String(th.getUTCHours()).padStart(2, '0')}:${String(th.getUTCMinutes()).padStart(2, '0')} TH`);
-  L.push(`💼 ${sym}${fmt(grand)} | today ${sgn(day, 0)} (${val + cashB ? sgn(day / (val || 1) * 100, 2) : '—'}%)`);
-  L.push(`📈 P/L ${sgn(val - cost, 0)} (${cost ? sgn((val - cost) / cost * 100, 1) : '—'}%)`);
-  if (mood) L.push(`🌡 Market: ${mood.score} ${mood.label}${mood.vix != null ? ` · VIX ${mood.vix}` : ''}`);
-  if (alerts.length) L.push(`🔔 ALERT: ${alerts.join(' | ')}`);
-  if (movers.length) {
-    const up = movers[0], dn = movers[movers.length - 1];
-    L.push(`🏆 ${up.s} ${sgn(up.chg)}% | 💔 ${dn.s} ${sgn(dn.chg)}%`);
-  }
-  if (weak.length) L.push(`⚠ Weak charts: ${weak.slice(0, 3).join(', ')}`);
-  if (watchLines.length) L.push(`📌 Watching: ${watchLines.slice(0, 4).join(' · ')}`);
-  if (ideas.length) L.push(`💡 Not owned: ${ideas.map(i => `${i.s} ${i.v.lt}`).join(' · ')}`);
-  if (missing.length) L.push(`(no data: ${missing.join(',')})`);
-  L.push(`— chart signals only, not financial advice`);
-  return { text: L.join('\n'), grand, day, mood, alerts };
+  const hhmm = `${String(th.getUTCHours()).padStart(2, '0')}:${String(th.getUTCMinutes()).padStart(2, '0')}`;
+  const RULE = '━━━━━━━━━━━━━';
+  /* a section = blank line + title + indented body; returns '' when empty so it's skipped */
+  const section = (title, lines) => (lines && lines.length) ? ['', title, ...lines].join('\n') : '';
+
+  const winners = movers.slice(0, 5).filter(m => m.chg > 0);
+  const losers = movers.slice(-5).reverse().filter(m => m.chg < 0 && !winners.includes(m));
+
+  const head = [
+    `📊 STOCK REPORT · ${hhmm} TH`,
+    RULE,
+    `💼 ${sym}${fmt(grand)} · today ${sgn(day, 0)} (${val ? sgn(day / val * 100, 2) : '—'}%)`,
+    `📈 Total P/L ${sgn(val - cost, 0)} (${cost ? sgn((val - cost) / cost * 100, 1) : '—'}%)`
+  ];
+  if (mood) head.push(`🌡 Market ${mood.score} ${mood.label}${mood.vix != null ? ` · VIX ${mood.vix}` : ''}`);
+  if (alerts.length) head.push(`🔔 ALERT: ${alerts.join(' | ')}`);
+
+  const body = [
+    section('🏆 Winners', winners.map((m, i) => ` ${i + 1} ${m.s} ${sgn(m.chg, 1)}%`)),
+    section('💔 Losers', losers.map((m, i) => ` ${i + 1} ${m.s} ${sgn(m.chg, 1)}%`)),
+    section('⚠️ Weak charts', weak.slice(0, 8).map(w => ` • ${w}`)),
+    section('💡 Ideas (not owned)', ideas.length ? [' • ' + ideas.map(i => `${i.s} ${i.v.lt}`).join(' · ')] : null),
+    section('📌 Watching', watchLines.length ? [' • ' + watchLines.slice(0, 6).join(' · ')] : null)
+  ].filter(Boolean);
+
+  const text = [
+    head.join('\n'),
+    ...body,
+    '', RULE, 'chart signals only · not advice',
+    ...(missing.length ? [`(no data: ${missing.join(',')})`] : [])
+  ].join('\n');
+  return { text, grand, day, mood, alerts };
 }

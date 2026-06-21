@@ -71,35 +71,27 @@ export default {
       if (!await lineSigOk(env, body, req.headers.get('x-line-signature'))) return new Response('bad sig', { status: 403 });
       const j = JSON.parse(body);
       ctx.waitUntil((async () => {
-        for (const ev of j.events || []) {
-          /* any text message OR a rich-menu tap (postback) -> reply with the live report */
-          if (!ev.replyToken || (ev.type !== 'message' && ev.type !== 'postback')) continue;
-          const text = await digestText(env);
-          await fetch('https://api.line.me/v2/bot/message/reply', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok(env)}` },
-            body: JSON.stringify({ replyToken: ev.replyToken, messages: [{ type: 'text', text }] })
-          });
-        }
+        try {
+          console.log('webhook events:', (j.events || []).map(e => e.type).join(','));
+          for (const ev of j.events || []) {
+            /* any text message OR a rich-menu tap (postback) -> reply with the live report */
+            if (!ev.replyToken || (ev.type !== 'message' && ev.type !== 'postback')) continue;
+            const text = await digestText(env);
+            const r = await fetch('https://api.line.me/v2/bot/message/reply', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok(env)}` },
+              body: JSON.stringify({ replyToken: ev.replyToken, messages: [{ type: 'text', text }] })
+            });
+            if (!r.ok) console.log('LINE reply HTTP', r.status, (await r.text()).slice(0, 300));
+            else console.log('LINE reply ok, text len', text.length);
+          }
+        } catch (e) { console.log('webhook handler error:', (e && e.stack) || String(e)); }
       })());
       return new Response('ok');
     }
 
-    /* private Yahoo relay for TrackingStocks.html:  /yh?u=<full yahoo url> */
-    if (url.pathname === '/yh') {
-      const u = url.searchParams.get('u') || '';
-      let target;
-      try { target = new URL(u); } catch { return new Response('bad url', { status: 400 }); }
-      if (!/(^|\.)finance\.yahoo\.com$/.test(target.hostname)) return new Response('host not allowed', { status: 403 });
-      const r = await fetch(target, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-      const resp = new Response(r.body, r);
-      resp.headers.set('Access-Control-Allow-Origin', '*');
-      return resp;
-    }
-
-    /* manual test: GET /digest shows the current message text */
-    if (url.pathname === '/digest') return new Response(await digestText(env), { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
-
-    return new Response('Longview notifier: /digest /line /yh', { status: 200 });
+    /* nothing else is public: the digest is private (holdings) and only goes out
+       via the signature-verified LINE webhook above and the hourly broadcast. */
+    return new Response('Stock Report bot — webhook only', { status: 200 });
   }
 };

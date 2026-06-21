@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Longview — Stock Tracker</title>
+<title>Stock Report — Stock Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -65,6 +65,16 @@ details.help ul{margin:8px 0 2px 18px}
 .brief .bhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
 .brief .bhead b{color:var(--gold);text-transform:uppercase;letter-spacing:1px;font-size:11px}
 
+/* always-visible snapshot bar under the tabs (mirrors the LINE report) */
+.snap{max-width:1320px;margin:12px auto 0;padding:0 22px}
+#snap{display:none}
+#snap.show{display:flex}
+.snap-bar{display:flex;flex-wrap:wrap;gap:12px 26px;width:100%;background:linear-gradient(180deg,var(--surface),var(--surface2));border:1px solid var(--line);border-radius:12px;padding:13px 20px}
+.snap-i{display:flex;flex-direction:column;gap:3px;flex:1;min-width:130px}
+.snap-l{font-family:var(--ui);font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--dim)}
+.snap-v{font-family:var(--mono);font-size:18px;font-weight:600;line-height:1.2}
+@media(max-width:600px){.snap{padding:0 12px}.snap-bar{gap:10px 18px;padding:11px 14px}.snap-i{min-width:42%}.snap-v{font-size:16px}}
+
 table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px}
 th{text-align:right;font-family:var(--ui);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;padding:6px 6px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;white-space:nowrap}
 th:hover{color:var(--gold)}
@@ -85,6 +95,47 @@ tbody tr.sel{background:var(--surface2);box-shadow:inset 3px 0 0 var(--gold)}
 .bell{font-size:11px}
 .stale{color:var(--gold);font-size:11px;cursor:help}
 .gfilter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+/* inline expandable quick-look shown under a watchlist row (tap the ▸ caret) */
+.rowtog{display:inline-block;width:15px;color:var(--dim);cursor:pointer;transition:transform .15s ease;user-select:none}
+.rowtog:hover{color:var(--gold)}
+.rowtog.open{transform:rotate(90deg);color:var(--gold)}
+tr.rowdetail{cursor:default}
+tr.rowdetail:hover{background:transparent}
+tr.rowdetail>td{white-space:normal;text-align:left;padding:0 6px 12px;border-bottom:1px solid var(--line)}
+.rd-inner{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;animation:rdIn .18s ease}
+@keyframes rdIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.rd-name{font-family:var(--ui);font-weight:600;font-size:13px;margin-bottom:8px}
+.rd-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px 14px;margin-bottom:10px}
+.rd-m{display:flex;flex-direction:column;font-family:var(--mono)}
+.rd-lab{font-family:var(--ui);font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--dim)}
+.rd-val{font-size:14px;margin-top:2px}
+.rd-verdicts{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:10px}
+.rd-vd{display:inline-flex;align-items:center;gap:6px;font-family:var(--ui);font-size:11px}
+.rd-vlab{color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:1px}
+.rd-score{color:var(--dim);font-family:var(--mono);font-size:11px}
+.rd-why{font-size:12px;color:var(--text);line-height:1.5;margin-bottom:6px}
+.rd-why b{color:var(--gold);font-family:var(--ui)}
+.rd-chart{margin:0 0 10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.rd-why-list{margin:0 0 8px}
+.rd-why-list .rd-wt{font-family:var(--ui);font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:4px}
+.rd-why-list ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;font-size:12px;font-family:var(--mono)}
+.rd-why-list li{line-height:1.4}
+@media(max-width:600px){.rd-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* mobile: turn the wide watchlist/holdings table into stacked cards (no sideways scroll) */
+@media(max-width:600px){
+  #wl table,#wl tbody,#wl tr,#wl td{display:block;width:auto}
+  #wl thead{position:absolute;left:-9999px}
+  #wl tbody tr{background:var(--surface2);border:1px solid var(--line);border-radius:10px;margin:0 0 10px;padding:4px 2px}
+  #wl tbody tr.sel{box-shadow:inset 3px 0 0 var(--gold)}
+  #wl tbody td{display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:right;white-space:normal;border:none;padding:6px 12px}
+  #wl tbody td::before{content:attr(data-label);color:var(--dim);font-family:var(--ui);font-size:10px;text-transform:uppercase;letter-spacing:.5px;text-align:left}
+  #wl tbody td.sym{font-size:15px;font-weight:700;border-bottom:1px solid var(--line);padding:8px 12px;margin-bottom:2px}
+  #wl tbody td.sym::before,#wl tbody td.act::before,#wl tbody tr.rowdetail td::before{content:''}
+  #wl tbody td.act{justify-content:flex-end}
+  #wl tbody tr.rowdetail{background:transparent;border:none;padding:0;margin:0 0 10px}
+  #wl tbody tr.rowdetail td{padding:0}
+}
 
 .dir-cat{margin-bottom:10px}
 .dir-cat .cat-name{font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
@@ -223,10 +274,10 @@ textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
 </head>
 <body>
 
-<div class="tape"><div class="tape-inner" id="tape">Longview — fetching quotes…</div></div>
+<div class="tape"><div class="tape-inner" id="tape">Stock Report — fetching quotes…</div></div>
 
 <header>
-  <h1>Long<em>view</em> <span style="font-size:11px;color:var(--dim);font-weight:400">free personal stock tracker</span></h1>
+  <h1>Stock <em>Report</em> <span style="font-size:11px;color:var(--dim);font-weight:400">free personal stock tracker</span></h1>
   <div class="controls">
     <input id="addSym" placeholder="Add ticker e.g. PTT.BK" style="width:150px" maxlength="14">
     <button class="btn gold" onclick="addTicker()">Add</button>
@@ -248,6 +299,8 @@ textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
   <button class="tabbtn" id="tb-mood" onclick="switchTab('mood')">🌡 Market Mood</button>
   <button class="tabbtn" id="tb-port" onclick="switchTab('port')">💼 Portfolio</button>
 </nav>
+
+<div class="snap" id="snap"></div>
 
 <main class="tabpane act" id="tab-dash">
   <details class="help"><summary>❓ New here? How to use this page</summary>
@@ -296,8 +349,8 @@ textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
   <div class="card full" id="btCard" style="display:none"></div>
 
   <div class="card full" id="ideasCard">
-    <h2>💡 Stock ideas — scan 24 quality names you don't own yet</h2>
-    <div style="font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:10px">One click fetches live data for 24 widely-followed, profitable large-caps and ETFs across different sectors (healthcare, payments, retail, energy, industrials… — areas your tech-heavy portfolio barely touches) and ranks them with the same transparent scoring used on your watchlist. The top 10 are <b>research starting points, not instructions</b>.</div>
+    <h2>💡 Stock ideas — scan 30 quality names you don't own yet</h2>
+    <div style="font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:10px">One click fetches live data for 30 widely-followed, profitable large-caps and ETFs across different sectors (healthcare, payments, retail, energy, industrials, utilities, transport… — areas your tech-heavy portfolio barely touches) and ranks them with the same transparent scoring used on your watchlist. All 30 are <b>research starting points, not instructions</b>.</div>
     <button class="btn gold" id="ideasBtn" onclick="scanIdeas()">🔍 Scan ideas now</button>
     <div id="ideasOut"></div>
   </div>
@@ -1325,7 +1378,7 @@ function renderTape(){
   let items = mood ? `<span>Market mood: <b style="color:${mood.label.col}">${Math.round(mood.score)} ${mood.label.word}</b></span>` : '';
   items += state.tickers.map(t=>{const d=state.data[t]; if(!d)return'';
     return `<span class="sym">${t}</span><span class="${cls(d.chg)}">${csym(d.currency)}${fmt(d.price)} ${sign(d.chgPct)}%</span>`;}).join('');
-  document.getElementById('tape').innerHTML = items ? items+items : 'Longview — no quotes loaded yet';
+  document.getElementById('tape').innerHTML = items ? items+items : 'Stock Report — no quotes loaded yet';
 }
 
 function renderSummary(){
@@ -1351,6 +1404,29 @@ function renderSummary(){
     <div class="stat"><div class="lbl">Today's P/L</div><div class="val">${dayStr}</div></div>
     <div class="stat"><div class="lbl">Est. annual dividends</div><div class="val" style="color:var(--gold)">${curs.length?curs.filter(c=>by[c].inc>0).map(c=>csym(c)+fmt(by[c].inc)).join('<br>')||'—':'—'}</div></div>
     <div class="stat"><div class="lbl">Tickers / alerts hit</div><div class="val">${state.tickers.length} / <span class="${triggered?'d':''}">${triggered} 🔔</span></div></div>`;
+}
+
+/* compact always-visible snapshot bar under the tabs — mirrors the LINE report */
+function renderSnapshot(){
+  const el=document.getElementById('snap'); if(!el) return;
+  const by={};
+  for(const t of state.tickers){ const h=state.holdings[t], d=state.data[t];
+    if(h&&d&&h.shares>0){ const c=d.currency; (by[c]=by[c]||{val:0,cost:0,day:0}); by[c].val+=h.shares*d.price; by[c].cost+=h.shares*h.cost; by[c].day+=h.shares*d.chg; } }
+  const curs=Object.keys(by);
+  let uniVal=0,uniCost=0,uniDay=0,ok=curs.length>0;
+  for(const c of curs){ const v=convert(by[c].val,c); if(v==null){ok=false;break;} uniVal+=v; uniCost+=convert(by[c].cost,c)||0; uniDay+=convert(by[c].day,c)||0; }
+  const m=computeMood();
+  const items=[];
+  if(ok&&curs.length){
+    const dayPct=(uniVal-uniDay)?uniDay/(uniVal-uniDay)*100:0;
+    items.push(`<div class="snap-i"><span class="snap-l">💼 Portfolio</span><span class="snap-v">${csym(state.baseCur)}${fmt(uniVal)}</span></div>`);
+    items.push(`<div class="snap-i"><span class="snap-l">📈 Today</span><span class="snap-v ${cls(uniDay)}">${sign(uniDay,0)} (${sign(dayPct)}%)</span></div>`);
+    items.push(`<div class="snap-i"><span class="snap-l">📊 Total P/L</span><span class="snap-v ${cls(uniVal-uniCost)}">${uniCost?sign((uniVal-uniCost)/uniCost*100,1)+'%':'—'}</span></div>`);
+  }
+  if(m) items.push(`<div class="snap-i"><span class="snap-l">🌡 Market</span><span class="snap-v" style="color:${m.label.col}">${Math.round(m.score)} ${m.label.word}</span></div>`);
+  if(!items.length){ el.className='snap'; el.innerHTML=''; return; }
+  el.className='snap show';
+  el.innerHTML=`<div class="snap-bar">${items.join('')}</div>`;
 }
 
 const COLS=[['sym','Ticker'],['price','Price'],['chgPct','Day %'],['r1m','1M %'],['yield','Yield'],['rsi','RSI'],['sig','Signals D·W·M·Y']];
@@ -1401,6 +1477,47 @@ function renderGroupFilter(){
     + gs.map(g=>`<button class="btn sm ${state.groupFilter===g?'on':''}" onclick="setGroupFilter('${esc(g)}')">${esc(g)}</button>`).join('');
 }
 
+/* rows the user has expanded for an inline quick-look (ephemeral — resets on reload) */
+const expandedRows = new Set();
+function toggleRow(t){ if(expandedRows.has(t)) expandedRows.delete(t); else expandedRows.add(t); renderWatchlist(); }
+
+/* compact, plain-English quick-look shown inline under a watchlist row */
+function rowDetailHTML(t,d){
+  const r=recoOf(d);
+  const m=(lab,val,cl='')=>`<div class="rd-m"><span class="rd-lab">${lab}</span><span class="rd-val ${cl}">${val}</span></div>`;
+  const macdTxt = d.macdHist==null?'—':(d.macdHist>0?'▲ rising':'▼ falling');
+  const vd=(lab,h)=>`<span class="rd-vd"><span class="rd-vlab">${lab}</span><span class="chip ${h.v.chip}">${h.v.word}</span><span class="rd-score">${h.score}/100</span></span>`;
+  /* wider ~3-month price line for the quick-look */
+  let chart='';
+  if(d.closes&&d.closes.length>=5){
+    const c=d.closes.slice(-66), mn=Math.min(...c), rg=(Math.max(...c)-mn)||1, W=280, H=46;
+    const pts=c.map((v,i)=>`${(i/(c.length-1)*W).toFixed(1)},${(H-3-(v-mn)/rg*(H-6)).toFixed(1)}`).join(' ');
+    chart=`<div class="rd-chart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:${H}px;display:block"><polyline points="${pts}" fill="none" stroke="${c[c.length-1]>=c[0]?'var(--up)':'var(--down)'}" stroke-width="1.5"/></svg></div>`;
+  }
+  /* top long-term drivers (strongest scoring factors) */
+  const drivers=[...(r.lt.parts||[])].sort((a,b)=>Math.abs(b.pts)-Math.abs(a.pts)).slice(0,3)
+    .map(p=>`<li class="${p.pts>=0?'u':'d'}">${p.pts>=0?'▲':'▼'} ${esc(p.what)}</li>`).join('');
+  const topWhy=h=>{ const ps=(h.parts||[]).slice().sort((a,b)=>Math.abs(b.pts)-Math.abs(a.pts)); return ps.length?ps[0].why:''; };
+  return `<div class="rd-inner">
+    <div class="rd-name">${esc(d.name||t)}${d.stale?' · <span class="stale">⏱ saved data</span>':''}</div>
+    ${chart}
+    <div class="rd-grid">
+      ${m('Price', csym(d.currency)+fmt(d.price))}
+      ${m('Today', sign(d.chgPct)+'%', cls(d.chgPct))}
+      ${m('1-month', d.r1m!=null?sign(d.r1m)+'%':'—', d.r1m!=null?cls(d.r1m):'')}
+      ${m('1-year', d.r1y!=null?sign(d.r1y)+'%':'—', d.r1y!=null?cls(d.r1y):'')}
+      ${m('RSI(14)', d.rsi!=null?fmt(d.rsi,0):'—')}
+      ${m('MACD', macdTxt, d.macdHist==null?'':(d.macdHist>0?'u':'d'))}
+      ${m('52w range', d.rangePos!=null?fmt(d.rangePos,0)+'%':'—')}
+      ${m('Div yield', d.yield>0?fmt(d.yield,1)+'%':'—')}
+    </div>
+    <div class="rd-verdicts">${vd('Days',r.d1)}${vd('Weeks',r.st)}${vd('Months',r.lt)}${vd('Years',r.yr)}</div>
+    ${drivers?`<div class="rd-why-list"><div class="rd-wt">Long-term drivers</div><ul>${drivers}</ul></div>`:''}
+    <div class="rd-why"><b>In short:</b> ${esc(topWhy(r.lt))}</div>
+    <button class="btn sm gold" onclick="event.stopPropagation();select('${t}');document.getElementById('detail').scrollIntoView({behavior:'smooth',block:'start'})">Open full analysis ↓</button>
+  </div>`;
+}
+
 function renderWatchlist(){
   renderGroupFilter();
   const heldMode = state.tab==='held';
@@ -1428,21 +1545,22 @@ function renderWatchlist(){
     const rc=recoOf(d);
     const hit=alertHit(t);
     const staleMark = d.stale ? ` <span class="stale" title="couldn't update just now — showing saved data from ${new Date(d.fetchedAt||d.histAt||0).toLocaleString()}. It will retry automatically.">⏱</span>` : '';
+    const isOpen=expandedRows.has(t);
     rows+=`<tr class="${state.sel===t?'sel':''}" onclick="select('${t}')">
-      <td class="sym">${t}${d.manual?' <span style="color:var(--dim);font-size:10px">(manual)</span>':''}${staleMark}${hit?` <span class="bell ${hit==='above'?'u':'d'}" title="price alert triggered">🔔</span>`:''}</td>
-      <td>${csym(d.currency)}${fmt(d.price)}</td>
-      <td class="${cls(d.chgPct)}">${sign(d.chgPct)}%</td>
-      <td>${sparkSVG(d)}</td>
+      <td class="sym"><span class="rowtog ${isOpen?'open':''}" onclick="event.stopPropagation();toggleRow('${t}')" title="show / hide quick details">▸</span> ${t}${d.manual?' <span style="color:var(--dim);font-size:10px">(manual)</span>':''}${staleMark}${hit?` <span class="bell ${hit==='above'?'u':'d'}" title="price alert triggered">🔔</span>`:''}</td>
+      <td data-label="Price">${csym(d.currency)}${fmt(d.price)}</td>
+      <td data-label="Day %" class="${cls(d.chgPct)}">${sign(d.chgPct)}%</td>
+      <td data-label="30d">${sparkSVG(d)}</td>
       ${heldMode
         ? (()=>{ const v=heldVal(t), pp=heldPlPct(t), w=(v!=null&&totV>0)?v/totV*100:null;
-            return `<td>${v!=null?csym(state.baseCur)+fmt(v):'—'}</td>
-      <td class="${pp!=null?cls(pp):''}">${pp!=null?sign(pp)+'%':'—'}</td>
-      <td>${w!=null?fmt(w,1)+'%':'—'}</td>`; })()
-        : `<td class="${d.r1m!=null?cls(d.r1m):''}">${d.r1m!=null?sign(d.r1m)+'%':'—'}</td>
-      <td>${d.yield>0?fmt(d.yield,1)+'%':'—'}</td>
-      <td>${d.rsi!=null?fmt(d.rsi,0):'—'}</td>`}
-      <td style="white-space:nowrap">${miniChips(d)}</td>
-      <td><button class="btn sm" onclick="event.stopPropagation();removeTicker('${t}')">✕</button></td></tr>`;
+            return `<td data-label="Value">${v!=null?csym(state.baseCur)+fmt(v):'—'}</td>
+      <td data-label="P/L %" class="${pp!=null?cls(pp):''}">${pp!=null?sign(pp)+'%':'—'}</td>
+      <td data-label="Weight">${w!=null?fmt(w,1)+'%':'—'}</td>`; })()
+        : `<td data-label="1M %" class="${d.r1m!=null?cls(d.r1m):''}">${d.r1m!=null?sign(d.r1m)+'%':'—'}</td>
+      <td data-label="Yield">${d.yield>0?fmt(d.yield,1)+'%':'—'}</td>
+      <td data-label="RSI">${d.rsi!=null?fmt(d.rsi,0):'—'}</td>`}
+      <td data-label="Signals" style="white-space:nowrap">${miniChips(d)}</td>
+      <td class="act"><button class="btn sm" onclick="event.stopPropagation();removeTicker('${t}')">✕</button></td></tr>${isOpen?`<tr class="rowdetail"><td colspan="99">${rowDetailHTML(t,d)}</td></tr>`:''}`;
   }
   const head=(heldMode?COLS_HELD:COLS).map(c=>{
     const h=`<th onclick="setSort('${c[0]}')">${c[1]}${state.sortKey===c[0]?(state.sortDir<0?' ↓':' ↑'):''}</th>`;
@@ -2298,7 +2416,7 @@ function renderCorr(){
   <div style="font-size:11px;color:var(--dim);margin-top:8px">Computed from the last year of daily moves. Foreign-market tickers trade on different calendars, so their correlations are approximate.</div>`;
 }
 /* ================= stock ideas scanner ================= */
-/* 24 quality candidates spread across sectors the user's tech-heavy portfolio under-owns */
+/* 30 quality candidates spread across sectors the user's tech-heavy portfolio under-owns */
 const IDEAS=[
   ['LLY','Eli Lilly — weight-loss & diabetes drugs'],['UNH','UnitedHealth — US health insurance'],
   ['JNJ','Johnson & Johnson — pharma & medtech'],['ABBV','AbbVie — dividend pharma'],
@@ -2311,7 +2429,10 @@ const IDEAS=[
   ['HD','Home Depot — housing & repair'],['ORCL','Oracle — enterprise cloud/AI'],
   ['CRM','Salesforce — enterprise software'],['ADBE','Adobe — creative software'],
   ['NFLX','Netflix — streaming'],['ASML','ASML — chipmaking monopoly tools'],
-  ['AVGO','Broadcom — AI networking chips'],['VIG','Vanguard Dividend Growth ETF']
+  ['AVGO','Broadcom — AI networking chips'],['VIG','Vanguard Dividend Growth ETF'],
+  ['MCD','McDonald’s — global restaurant chain'],['PEP','PepsiCo — snacks & beverages'],
+  ['ABT','Abbott — medical devices & diagnostics'],['HON','Honeywell — diversified industrials'],
+  ['NEE','NextEra Energy — utility & renewables'],['UNP','Union Pacific — freight rail']
 ];
 async function scanIdeas(){
   if(state.ideas.loading) return;
@@ -2334,7 +2455,7 @@ function renderIdeas(){
   const L=state.ideas.list;
   if(!L||!L.length){ out.innerHTML='<div class="loading errtxt">Scan failed — relays busy. Try again in a minute.</div>'; return; }
   const ranked=L.map(x=>{ const r=recoOf(x.d); return {...x, r, key:r.lt.score*2+r.st.score}; })
-    .sort((a,b)=>b.key-a.key).slice(0,10);
+    .sort((a,b)=>b.key-a.key).slice(0,30);
   out.innerHTML=`<table style="margin-top:12px"><thead><tr><th>#</th><th>Ticker</th><th style="text-align:left">What it is</th><th>Price</th><th>1Y %</th><th>Yield</th><th>📈 Months</th><th>📅 Weeks</th><th></th></tr></thead><tbody>
   ${ranked.map((x,i)=>`<tr>
     <td>${i+1}</td><td class="sym">${x.s}</td>
@@ -2347,7 +2468,7 @@ function renderIdeas(){
     <td><button class="btn sm gold" onclick="quickAdd('${x.s}')">+ Watch</button></td></tr>
     <tr><td></td><td colspan="8" style="text-align:left;white-space:normal;font-size:11.5px;color:var(--dim);font-family:var(--ui)">${esc(([...x.r.lt.parts].sort((a,b)=>Math.abs(b.pts)-Math.abs(a.pts))[0]||{}).why||'').slice(0,220)}</td></tr>`).join('')}
   </tbody></table>
-  <div class="focus-msg">Why these 10: ranked by the same long-term trend score as your watchlist (price vs 200-day average, golden cross, 52-week position, momentum, dividends) across a fixed universe of 24 large, profitable, sector-diverse companies. The scan sees <b>only charts</b> — before buying anything, check what the business earns, what it costs (P/E), and read its recent news. Click <b>+ Watch</b> to track one and get its full analysis, trade plan and backtest. Not financial advice.</div>`;
+  <div class="focus-msg">Why these: ranked by the same long-term trend score as your watchlist (price vs 200-day average, golden cross, 52-week position, momentum, dividends) across a fixed universe of 30 large, profitable, sector-diverse companies. The scan sees <b>only charts</b> — before buying anything, check what the business earns, what it costs (P/E), and read its recent news. Click <b>+ Watch</b> to track one and get its full analysis, trade plan and backtest. Not financial advice.</div>`;
 }
 
 /* ================= morning briefing ================= */
@@ -2421,7 +2542,7 @@ function checkAlerts(){
     state.notified[t]=hit;
     if(state.notify && 'Notification' in window && Notification.permission==='granted'){
       const d=state.data[t], a=state.alerts[t];
-      try{ new Notification(`Longview: ${t} alert`, {body:`${t} at ${csym(d.currency)}${fmt(d.price)} — crossed your "${hit}" level of ${fmt(hit==='above'?a.above:a.below)}.`}); }catch(e){}
+      try{ new Notification(`Stock Report: ${t} alert`, {body:`${t} at ${csym(d.currency)}${fmt(d.price)} — crossed your "${hit}" level of ${fmt(hit==='above'?a.above:a.below)}.`}); }catch(e){}
       beep();
     }
   }
@@ -2444,7 +2565,7 @@ function makeReport(){
     <tr><td></td><td colspan="5" class="small">Short-term driver: ${esc(topST?topST.what:'—')}. Long-term driver: ${esc(topLT?topLT.what:'—')}.${state.notes[t]?' Your note: '+esc(state.notes[t]).slice(0,160):''}</td></tr>`;
   }).join('');
   document.getElementById('printReport').innerHTML=`
-  <h1>Longview — Investment Report</h1>
+  <h1>Stock Report — Investment Report</h1>
   <div class="small">Generated ${new Date().toLocaleString()} · prices may be ~15 min delayed · technical signals only — not financial advice</div>
   ${ok.length?`<h2>Portfolio (${esc(state.baseCur)})</h2>
   <table><tr><th>Total value</th><th>Total cost</th><th>P/L</th><th>P/L %</th><th>Est. dividends/yr</th></tr>
@@ -2470,6 +2591,7 @@ function switchTab(name){
   if(name==='mood') renderMood();
   else if(name==='port') renderPortfolio();
   else renderWatchlist();
+  renderSnapshot();
 }
 const isHeld = t => { const h=state.holdings[t]; return !!(h && h.shares>0); };
 function setBaseCur(c){ state.baseCur=c; saveState(); ensureFx().then(()=>{ renderPortfolio(); renderSummary(); }); renderPortfolio(); }
@@ -2523,7 +2645,7 @@ async function copySummary(t){
     `Signals: Days ${r.d1.v.word} ${r.d1.score} | Weeks ${r.st.v.word} ${r.st.score} | Months ${r.lt.v.word} ${r.lt.score} | Years ${r.yr.v.word} ${r.yr.score}`,
     p?`Plan: entry ~${fmt(p.entry)} · stop ${fmt(p.stop)} · target ${fmt(p.target)} (R:R ${fmt(p.rr,1)}:1)`:'',
     `RSI ${d.rsi!=null?fmt(d.rsi,0):'—'} · vs 200d avg ${d.sma200?sign((d.price/d.sma200-1)*100,1)+'%':'—'} · max DD ${d.maxDD!=null?fmt(d.maxDD,0)+'%':'—'}`,
-    `(chart signals only — not financial advice) · Longview ${new Date().toLocaleDateString()}`
+    `(chart signals only — not financial advice) · Stock Report ${new Date().toLocaleDateString()}`
   ].filter(Boolean);
   try{ await navigator.clipboard.writeText(lines.join('\n')); setStatus('📋 Summary of '+t+' copied — paste it anywhere.'); }
   catch(e){ setStatus('Clipboard blocked by the browser — select & copy manually.', true); }
@@ -2660,7 +2782,7 @@ async function ensureMkt(){
   });
 }
 
-function renderAll(){ renderTape(); renderSummary(); renderWatchlist(); renderDetail(); renderReco(); }
+function renderAll(){ renderTape(); renderSnapshot(); renderSummary(); renderWatchlist(); renderDetail(); renderReco(); }
 
 function toggleAuto(){
   const on=document.getElementById('auto').checked;
