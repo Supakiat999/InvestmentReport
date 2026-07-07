@@ -52,6 +52,23 @@ label.tog{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:5p
 main{grid-template-columns:1fr 1fr;gap:16px;padding:14px 22px 30px;max-width:1320px;margin:0 auto}
 @media(max-width:920px){main{grid-template-columns:1fr !important}}
 
+/* mobile: tabs stay pinned while you scroll, header tools become one swipeable row */
+@media(max-width:600px){
+  header{padding:12px 12px 4px}
+  h1{font-size:17px}
+  .controls{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:5px}
+  .controls .btn,.controls label.tog,.controls .savebadge,.controls input{flex-shrink:0}
+  .tabs{position:sticky;top:0;z-index:60;background:var(--bg);padding:4px 6px 0;gap:0;box-shadow:0 6px 12px -8px rgba(0,0,0,.6)}
+  .tabbtn{flex:1;padding:11px 6px;font-size:12.5px;text-align:center}
+  main{padding:10px 10px 60px;gap:12px}
+  .card{padding:13px 12px}
+}
+
+/* floating back-to-top (appears after scrolling down) */
+#totop{position:fixed;right:14px;bottom:18px;z-index:80;width:44px;height:44px;border-radius:50%;background:var(--gold);color:#1a1408;border:none;font-size:20px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.45);display:none}
+#totop.show{display:block}
+@media print{#totop{display:none!important}}
+
 .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
 .card h2{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);margin-bottom:12px;font-weight:600}
 .full{grid-column:1/-1}
@@ -139,19 +156,23 @@ tr.rowdetail>td{white-space:normal;text-align:left;padding:0 6px 12px;border-bot
 .rd-why-list li{line-height:1.4}
 @media(max-width:600px){.rd-grid{grid-template-columns:repeat(2,1fr)}}
 
-/* mobile: turn the wide watchlist/holdings table into stacked cards (no sideways scroll) */
+/* mobile: compact stock cards — ticker line, then small inline label·value pairs
+   (one card ≈ 3 short lines instead of 8 full-width rows) */
 @media(max-width:600px){
-  #wl table,#wl tbody,#wl tr,#wl td{display:block;width:auto}
+  #wl table,#wl tbody{display:block;width:auto}
   #wl thead{position:absolute;left:-9999px}
-  #wl tbody tr{background:var(--surface2);border:1px solid var(--line);border-radius:10px;margin:0 0 10px;padding:4px 2px}
+  #wl tbody tr{display:flex;flex-wrap:wrap;align-items:center;gap:3px 14px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;margin:0 0 8px;padding:9px 12px 10px}
   #wl tbody tr.sel{box-shadow:inset 3px 0 0 var(--gold)}
-  #wl tbody td{display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:right;white-space:normal;border:none;padding:6px 12px}
-  #wl tbody td::before{content:attr(data-label);color:var(--dim);font-family:var(--ui);font-size:10px;text-transform:uppercase;letter-spacing:.5px;text-align:left}
-  #wl tbody td.sym{font-size:15px;font-weight:700;border-bottom:1px solid var(--line);padding:8px 12px;margin-bottom:2px}
-  #wl tbody td.sym::before,#wl tbody td.act::before,#wl tbody tr.rowdetail td::before{content:''}
-  #wl tbody td.act{justify-content:flex-end}
-  #wl tbody tr.rowdetail{background:transparent;border:none;padding:0;margin:0 0 10px}
+  #wl tbody td{display:inline-flex;align-items:center;gap:5px;order:2;text-align:left;white-space:nowrap;border:none;padding:0;font-size:12.5px}
+  #wl tbody td::before{content:attr(data-label);color:var(--dim);font-family:var(--ui);font-size:9px;text-transform:uppercase;letter-spacing:.4px}
+  #wl tbody td.sym{order:0;flex:1 1 55%;min-width:0;font-size:15px;font-weight:700;padding:0 0 2px}
+  #wl tbody td.act{order:1;margin-left:auto;padding:0}
+  #wl tbody td.sym::before,#wl tbody td.act::before,#wl tbody td[data-label="30d"]::before{content:''}
+  #wl tbody td[colspan]{flex:1 1 100%;display:block;white-space:normal}
+  #wl tbody td[colspan]::before{content:''}
+  #wl tbody tr.rowdetail{background:transparent;border:none;padding:0;margin:0 0 8px}
   #wl tbody tr.rowdetail td{padding:0}
+  .rowtog{width:20px;font-size:15px}
 }
 
 .dir-cat{margin-bottom:10px}
@@ -419,6 +440,8 @@ textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
 </div>
 
 <!-- private holdings (gitignored; absent on the public host = no personal data served) -->
+<button id="totop" title="back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
 <script src="portfolio-seed.js" onerror="window.__noSeed=1"></script>
 <script>
 'use strict';
@@ -2982,6 +3005,8 @@ function handleDeepLink(){
 }
 handleDeepLink();
 window.addEventListener('hashchange', handleDeepLink);
+/* floating ↑ appears once you've scrolled a screen down */
+window.addEventListener('scroll', ()=>{ document.getElementById('totop').classList.toggle('show', window.scrollY>500); }, {passive:true});
 </script>
 </body>
 </html>
