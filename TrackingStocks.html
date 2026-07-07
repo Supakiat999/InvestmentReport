@@ -1245,6 +1245,8 @@ function derivePortfolioHoldings(force){
 }
 
 /* ================= state + persistence ================= */
+/* storage keys keep the original "longview" names on purpose — renaming them
+   would orphan every user's saved holdings, notes and alerts in this browser */
 const LS_KEY='longview-v2';
 const CACHE_KEY='longview-cache-v1';
 const FULL_TTL = 20*60*60*1000;   /* refetch full 5y history after 20h; lighter quote updates in between */
@@ -2214,7 +2216,7 @@ function exportCSV(){
   }
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download='longview-portfolio.csv'; a.click();
+  a.download='stock-report-portfolio.csv'; a.click();
 }
 
 /* ================= 📝 portfolio summary ================= */
@@ -2933,7 +2935,7 @@ function removeTicker(t){
 }
 function exportData(){
   const blob=new Blob([JSON.stringify({tickers:state.tickers,notes:state.notes,holdings:state.holdings,alerts:state.alerts,groups:state.groups,baseCur:state.baseCur,riskPct:state.riskPct,accountSize:state.accountSize},null,2)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='longview-data.json'; a.click();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='stock-report-data.json'; a.click();
 }
 function importData(e){
   const f=e.target.files[0]; if(!f)return;
