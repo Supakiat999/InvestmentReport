@@ -137,7 +137,7 @@ export async function buildDigest(cfg) {
     day += conv(h.shares * (px - prev), h.currency) || 0;
     const chg = (px / prev - 1) * 100;
     movers.push({ s, chg });
-    if (d.closes.length > 60) { const v2 = verdicts(d.closes); if (v2.lt <= 42) weak.push(`${s} ${v2.ltWord} ${v2.lt}`); }
+    if (d.closes.length > 60) { const v2 = verdicts(d.closes); if (v2.lt <= 42) weak.push({ s, word: v2.ltWord, lt: v2.lt }); }
   }
   movers.sort((a, b) => b.chg - a.chg);
   const cashB = (conv(cfg.cashTHB || 0, 'THB') || 0) + (conv(cfg.cashUSD || 0, 'USD') || 0);
@@ -177,6 +177,13 @@ export async function buildDigest(cfg) {
   const winners = movers.slice(0, 5).filter(m => m.chg > 0);
   const losers = movers.slice(-5).reverse().filter(m => m.chg < 0 && !winners.includes(m));
 
+  /* 🎯 Do now — only the few actions that matter most: alerts → weakest holdings → best idea */
+  const weakSorted = [...weak].sort((a, b) => a.lt - b.lt);
+  const doNow = [];
+  if (alerts.length) doNow.push(`Check alert: ${alerts[0]}${alerts.length > 1 ? ` (+${alerts.length - 1} more)` : ''}`);
+  for (const w of weakSorted.slice(0, 2)) if (w.lt <= 33 && doNow.length < 3) doNow.push(`Review ${w.s} — chart says ${w.word} (${w.lt}/100 long-term)`);
+  if (doNow.length < 3 && ideas.length && ideas[0].v.lt >= 85) doNow.push(`Research ${ideas[0].s} — strongest chart you don't own (${ideas[0].v.lt}/100)`);
+
   const head = [
     `📊 STOCK REPORT · ${hhmm} TH`,
     RULE,
@@ -187,9 +194,10 @@ export async function buildDigest(cfg) {
   if (alerts.length) head.push(`🔔 ALERT: ${alerts.join(' | ')}`);
 
   const body = [
+    section('🎯 Do now', doNow.map((a, i) => ` ${i + 1} ${a}`)),
     section('🏆 Winners', winners.map((m, i) => ` ${i + 1} ${m.s} ${sgn(m.chg, 1)}%`)),
     section('💔 Losers', losers.map((m, i) => ` ${i + 1} ${m.s} ${sgn(m.chg, 1)}%`)),
-    section('⚠️ Weak charts', weak.slice(0, 8).map(w => ` • ${w}`)),
+    section('⚠️ Weak charts', weakSorted.slice(0, 8).map(w => ` • ${w.s} ${w.word} ${w.lt}`)),
     section('💡 Ideas (not owned)', ideas.length ? [' • ' + ideas.map(i => `${i.s} ${i.v.lt}`).join(' · ')] : null),
     section('📌 Watching', watchLines.length ? [' • ' + watchLines.slice(0, 6).join(' · ')] : null)
   ].filter(Boolean);

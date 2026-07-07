@@ -101,6 +101,14 @@ tbody tr.sel{background:var(--surface2);box-shadow:inset 3px 0 0 var(--gold)}
 .bell{font-size:11px}
 .stale{color:var(--gold);font-size:11px;cursor:help}
 .gfilter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+/* 🎯 Action Center — ranked advice rows */
+.axn{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.axn:last-of-type{border-bottom:none}
+.axn .chip{flex-shrink:0}
+.axn-b{flex:1;font-size:12.5px;line-height:1.5}
+.axn-b b{font-family:var(--mono)}
+.axn-disc{font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5}
+
 .wlsearch{width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 12px;font-size:13px;font-family:var(--ui);margin-bottom:10px}
 .wlsearch:focus{outline:none;border-color:var(--gold)}
 .wlsearch::placeholder{color:var(--dim)}
@@ -325,6 +333,8 @@ textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
   <div class="brief" id="brief"></div>
   <div class="summary" id="summary"></div>
   <div class="status" id="status"></div>
+
+  <div class="card full" id="actionsCard" style="display:none"></div>
 
   <div class="card">
     <h2>Watchlist <span style="font-weight:400;text-transform:none;letter-spacing:0">— click headers to sort, click a row for details</span></h2>
@@ -1149,9 +1159,35 @@ const DIRECTORY = [
    Holdings are loaded from portfolio-seed.js (gitignored — stays on your computer only),
    so the PUBLISHED copy of this file contains no personal positions. On the public host
    the seed is absent and the app simply starts with the default watchlist. */
-const MY_PORTFOLIO = (typeof window!=='undefined' && window.MY_PORTFOLIO_SEED)
+let MY_PORTFOLIO = (typeof window!=='undefined' && window.MY_PORTFOLIO_SEED)
   ? window.MY_PORTFOLIO_SEED
   : { asOf:'', cashTHB:0, cashUSD:0, dime:[], webull:[], untracked:[] };
+const hasSeed = () => MY_PORTFOLIO.dime.length>0 || MY_PORTFOLIO.webull.length>0;
+
+/* on the published site the private seed file doesn't exist — instead the holdings ship
+   encrypted (holdings.enc.json, AES-256-GCM). The passcode is the only key: wrong code
+   = decryption fails = no data. Nothing readable is ever in the public repo. */
+async function unlockHoldings(){
+  const pass = prompt('🔐 Enter your passcode to unlock your holdings:');
+  if(pass==null) return false;
+  setStatus('Unlocking holdings…');
+  try{
+    const r = await fetch('holdings.enc.json', {cache:'no-store'});
+    if(!r.ok) throw new Error('holdings.enc.json not found');
+    const e = await r.json();
+    const b = s=>Uint8Array.from(atob(s), c=>c.charCodeAt(0));
+    const bk = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass.trim()), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey({name:'PBKDF2', salt:b(e.salt), iterations:e.iter, hash:'SHA-256'},
+      bk, {name:'AES-GCM', length:256}, false, ['decrypt']);
+    const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv:b(e.iv)}, key, b(e.data));
+    MY_PORTFOLIO = JSON.parse(new TextDecoder().decode(plain));
+    setStatus('🔓 Holdings unlocked — loading your portfolio…');
+    return true;
+  }catch(err){
+    setStatus('❌ Wrong passcode (or holdings file unreachable) — nothing was loaded. Try again.', true);
+    return false;
+  }
+}
 function loadMyPortfolio(){
   const all=new Set(state.tickers);
   for(const [s,,,g] of MY_PORTFOLIO.dime){ all.add(s); state.groups[s]=g; }
@@ -1584,7 +1620,7 @@ function renderWatchlist(){
   }).join('');
   if(!rows){
     rows = heldMode
-      ? `<tr><td colspan="9" class="loading">No holdings showing yet.<br><button class="btn gold" style="margin:8px 0" onclick="forceLoadPortfolio()">📥 Load my 38 holdings from the 11 June report</button><br>…or enter Shares + Avg cost manually in any stock's Details panel.</td></tr>`
+      ? `<tr><td colspan="9" class="loading">No holdings showing yet.<br><button class="btn gold" style="margin:8px 0" onclick="forceLoadPortfolio()">🔐 Load my 38 holdings (passcode)</button><br>…or enter Shares + Avg cost manually in any stock's Details panel.</td></tr>`
       : `<tr><td colspan="9" class="loading">Your watchlist is empty — everything you own lives in the 💹 Holdings tab now.<br>Add a ticker above, pick from Quick add below, or hit 💡 Scan ideas — stocks you add (but don't own) appear here.</td></tr>`;
   }
   document.getElementById('wl').innerHTML = `<table><thead><tr>${head}<th></th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -2016,7 +2052,9 @@ function renderPortfolio(){
   const curOpts=['USD','THB','EUR','GBP','JPY','SGD','HKD'].map(c=>`<option ${state.baseCur===c?'selected':''}>${c}</option>`).join('');
   const baseSel=`<select id="baseCur" onchange="setBaseCur(this.value)" title="show everything in this currency">${curOpts}</select>`;
   if(!rows.length){
-    totEl.innerHTML=`<h2>💼 Portfolio</h2><div class="loading">No holdings yet. Go to the Dashboard, click one of your stocks, and enter <b>Shares</b> + <b>Avg cost</b> in "Your holding" — this page then builds itself automatically.</div>`;
+    totEl.innerHTML=`<h2>💼 Portfolio</h2><div class="loading">No holdings yet.<br>
+      <button class="btn gold" style="margin:8px 0" onclick="forceLoadPortfolio()">🔐 Load my 38 holdings (passcode)</button><br>
+      …or go to the Dashboard, click one of your stocks, and enter <b>Shares</b> + <b>Avg cost</b> in "Your holding" — this page then builds itself automatically.</div>`;
     for(const id of ['portAlloc','portDivs','portHist','portCorr']) document.getElementById(id).style.display='none';
     return;
   }
@@ -2138,7 +2176,9 @@ function reloadReportPortfolio(){
 }
 /* gentle one-click loader for the empty-Holdings button: derives from whatever data is
    already cached (using the fallback FX rate so it works offline), then refreshes the rest */
-function forceLoadPortfolio(){
+async function forceLoadPortfolio(){
+  /* no local seed (published site) → decrypt the shipped holdings with the passcode first */
+  if(!hasSeed() && !(await unlockHoldings())) return;
   loadMyPortfolio();
   derivePortfolioHoldings(true);
   setStatus('Loading your holdings from the report…');
@@ -2799,7 +2839,54 @@ async function ensureMkt(){
   });
 }
 
-function renderAll(){ renderTape(); renderSnapshot(); renderSummary(); renderWatchlist(); renderDetail(); renderReco(); }
+/* 🎯 Action Center — ranks what deserves attention first, in plain English.
+   Priority: triggered alerts → weak charts you OWN → strong charts you don't own yet. */
+function renderActions(){
+  const el=document.getElementById('actionsCard'); if(!el) return;
+  const A=[];
+  const topWhat=h=>{ const p=[...(h.parts||[])].sort((a,b)=>Math.abs(b.pts)-Math.abs(a.pts))[0]; return p?p.what:''; };
+  /* 1) triggered price alerts */
+  for(const t of state.tickers){
+    const hit=alertHit(t); if(!hit) continue;
+    const a=state.alerts[t]||{}, d=state.data[t];
+    A.push({pri:0, chip:'CHECK', cls:'bear', t,
+      msg:`price crossed your "${hit}" alert level of ${fmt(hit==='above'?a.above:a.below)} — now ${d?csym(d.currency)+fmt(d.price):'—'}.`});
+  }
+  /* 2) holdings whose long-term chart is weak (worst first) */
+  const weakH=state.tickers.filter(t=>isHeld(t)&&state.data[t]&&!state.data[t].manual)
+    .map(t=>({t, r:recoOf(state.data[t])}))
+    .filter(x=>x.r.lt.score<=42).sort((a,b)=>a.r.lt.score-b.r.lt.score);
+  for(const x of weakH.slice(0,3))
+    A.push({pri:1, chip:'REVIEW', cls:x.r.lt.score<=33?'bear':'lean-s', t:x.t,
+      msg:`you own it and the long-term chart says <b>${x.r.lt.v.word}</b> (${x.r.lt.score}/100) — ${esc(topWhat(x.r.lt))}.`});
+  /* 3) strong long-term charts sitting on the watchlist, not owned */
+  const strongW=state.tickers.filter(t=>!isHeld(t)&&state.data[t]&&!state.data[t].manual)
+    .map(t=>({t, r:recoOf(state.data[t])}))
+    .filter(x=>x.r.lt.score>=68).sort((a,b)=>b.r.lt.score-a.r.lt.score);
+  for(const x of strongW.slice(0,2))
+    A.push({pri:2, chip:'CONSIDER', cls:'bull', t:x.t,
+      msg:`on your watchlist (not owned) with a strong long-term chart — <b>${x.r.lt.v.word}</b> ${x.r.lt.score}/100 — ${esc(topWhat(x.r.lt))}.`});
+  /* 4) best idea from the last scan, if any */
+  if(state.ideas && state.ideas.list && state.ideas.list.length){
+    const best=state.ideas.list.filter(x=>!state.tickers.includes(x.s)).map(x=>({...x, r:recoOf(x.d)})).sort((a,b)=>b.r.lt.score-a.r.lt.score)[0];
+    if(best && best.r.lt.score>=85)
+      A.push({pri:3, chip:'RESEARCH', cls:'bull', t:best.s, idea:true,
+        msg:`strongest chart you don't own (${best.r.lt.score}/100) — ${esc(best.desc||'')}.`});
+  }
+  if(!A.length){ el.style.display='none'; el.innerHTML=''; return; }
+  A.sort((a,b)=>a.pri-b.pri);
+  el.style.display='';
+  el.innerHTML=`<h2>🎯 Action Center <span style="font-weight:400;text-transform:none;letter-spacing:0">— what deserves your attention first</span></h2>
+    ${A.slice(0,6).map(a=>`<div class="axn">
+      <span class="chip ${a.cls}">${a.chip}</span>
+      <div class="axn-b"><b>${a.t}</b> — ${a.msg}</div>
+      ${a.idea?`<button class="btn sm gold" onclick="quickAdd('${a.t}')">+ Watch</button>`
+              :`<button class="btn sm" onclick="switchTab('watch');select('${a.t}');document.getElementById('detail').scrollIntoView({behavior:'smooth'})">Open ↓</button>`}
+    </div>`).join('')}
+    <div class="axn-disc">Ranked: alerts first, then weak charts you own, then strong charts you don't. These read <b>only the chart</b> — check the business, valuation and news before acting. Not financial advice.</div>`;
+}
+
+function renderAll(){ renderTape(); renderSnapshot(); renderSummary(); renderActions(); renderWatchlist(); renderDetail(); renderReco(); }
 
 function toggleAuto(){
   const on=document.getElementById('auto').checked;
