@@ -5,9 +5,39 @@
         Replies are FREE on LINE — unlimited on-demand checks.
      3. Yahoo proxy (/yh?u=<url>): a private, always-up relay for TrackingStocks.html.
    Deploy:  wrangler deploy   (see SETUP.md) */
-import { buildDigest } from './digest.mjs';
+import { buildDigest, stockText, moodText, ideasText } from './digest.mjs';
 
 let cached = null, cachedAt = 0;
+
+/* ---------- chat command routing ---------- */
+const HELP = [
+  '🤖 STOCK REPORT COMMANDS',
+  '━━━━━━━━━━━━━',
+  '• Send a ticker → instant analysis',
+  '   e.g. NVDA · MSFT · PTT.BK',
+  '• mood — market fear/greed right now',
+  "• ideas — strongest charts you don't own",
+  '• report — full portfolio report',
+  '(the menu buttons below work too)'
+].join('\n');
+
+const replyCache = new Map();   // normalized command -> { t, text } (5-min TTL, small cap)
+async function routedReply(env, raw) {
+  const txt = String(raw || '').trim();
+  const low = txt.toLowerCase();
+  if (!txt || low === 'report' || /report now/i.test(txt)) return digestText(env);
+  if (low === 'help' || txt === '?') return HELP;
+  const hit = replyCache.get(low);
+  if (hit && Date.now() - hit.t < 5 * 60e3) return hit.text;
+  let out = null;
+  if (low === 'mood' || low === 'market') out = await moodText();
+  else if (low === 'idea' || low === 'ideas') out = await ideasText(await getCfg(env));
+  else if (/^[a-z0-9.\-^=]{1,14}$/i.test(txt)) out = await stockText(txt, await getCfg(env));
+  if (out == null) return digestText(env);   // multi-word chat → the full report, as before
+  replyCache.set(low, { t: Date.now(), text: out });
+  if (replyCache.size > 50) replyCache.delete(replyCache.keys().next().value);
+  return out;
+}
 
 /* PowerShell/wrangler can prepend a BOM (U+FEFF) to a secret; scrub it (also breaks HTTP headers) */
 const clean = s => {
@@ -74,9 +104,12 @@ export default {
         try {
           console.log('webhook events:', (j.events || []).map(e => e.type).join(','));
           for (const ev of j.events || []) {
-            /* any text message OR a rich-menu tap (postback) -> reply with the live report */
+            /* text messages are routed as commands (ticker / mood / ideas / help / report);
+               postbacks and non-text messages get the full report */
             if (!ev.replyToken || (ev.type !== 'message' && ev.type !== 'postback')) continue;
-            const text = await digestText(env);
+            const text = (ev.type === 'message' && ev.message && ev.message.type === 'text')
+              ? await routedReply(env, ev.message.text)
+              : await digestText(env);
             const r = await fetch('https://api.line.me/v2/bot/message/reply', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok(env)}` },

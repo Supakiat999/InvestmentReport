@@ -430,6 +430,7 @@ textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
   <div class="card" id="portAlloc" style="display:none"></div>
   <div class="card" id="portDivs" style="display:none"></div>
   <div class="card full" id="portHist" style="display:none"></div>
+  <div class="card full" id="portValueChart" style="display:none"></div>
   <div class="card full" id="portCorr" style="display:none"></div>
 </main>
 
@@ -1280,7 +1281,8 @@ let state = {
   news:{}, newsSel:null, tab:'dash', groupFilter:'',
   baseCur:'USD', riskPct:2, accountSize:0, notify:false, notified:{},
   lastVerdicts:{}, briefDismissed:'', mkt:{}, fx:{},
-  portLoaded:false, pendingPortfolio:false, ideas:{at:0, list:null, loading:false}
+  portLoaded:false, pendingPortfolio:false, ideas:{at:0, list:null, loading:false},
+  valueLog:{}   /* real account value, one point per visit-day: 'YYYY-MM-DD' -> {v, cur} */
 };
 
 function saveState(){
@@ -1291,7 +1293,7 @@ function saveState(){
       sortKey:state.sortKey, sortDir:state.sortDir, tab:state.tab, groupFilter:state.groupFilter,
       baseCur:state.baseCur, riskPct:state.riskPct, accountSize:state.accountSize,
       notify:state.notify, lastVerdicts:state.lastVerdicts, briefDismissed:state.briefDismissed,
-      portLoaded:state.portLoaded, pendingPortfolio:state.pendingPortfolio
+      portLoaded:state.portLoaded, pendingPortfolio:state.pendingPortfolio, valueLog:state.valueLog
     }));
     const b=document.getElementById('savebadge');
     if(b) b.textContent='💾 saved '+new Date().toLocaleTimeString();
@@ -1318,6 +1320,7 @@ function loadState(){
     state.briefDismissed=j.briefDismissed||'';
     state.portLoaded=!!j.portLoaded;
     state.pendingPortfolio=!!j.pendingPortfolio;
+    state.valueLog=j.valueLog||{};
   }catch(e){}
 }
 
@@ -2080,7 +2083,7 @@ function renderPortfolio(){
     totEl.innerHTML=`<h2>💼 Portfolio</h2><div class="loading">No holdings yet.<br>
       <button class="btn gold" style="margin:8px 0" onclick="forceLoadPortfolio()">🔐 Load my 38 holdings (passcode)</button><br>
       …or go to the Dashboard, click one of your stocks, and enter <b>Shares</b> + <b>Avg cost</b> in "Your holding" — this page then builds itself automatically.</div>`;
-    for(const id of ['portAlloc','portDivs','portHist','portCorr']) document.getElementById(id).style.display='none';
+    for(const id of ['portAlloc','portDivs','portHist','portValueChart','portCorr']) document.getElementById(id).style.display='none';
     return;
   }
   const missing=rows.filter(r=>r.missingFx);
@@ -2125,6 +2128,7 @@ function renderPortfolio(){
   renderAlloc(ok, val);
   renderDivCal(ok);
   renderPortHist(ok);
+  renderValueLog();
   renderCorr();
 }
 
@@ -2496,6 +2500,42 @@ function renderCorr(){
   ${dupes.length?`<div class="warnbox" style="margin-top:10px">⚠ ${dupes.map(p=>`<b>${p.a}</b> and <b>${p.b}</b> move ${fmt(p.c*100,0)}% together`).join('; ')}. If you hold them for different reasons, check those reasons still differ.</div>`:''}
   <div style="font-size:11px;color:var(--dim);margin-top:8px">Computed from the last year of daily moves. Foreign-market tickers trade on different calendars, so their correlations are approximate.</div>`;
 }
+/* 📆 your REAL account value over time — one recorded point per visit-day (state.valueLog).
+   Complements the hypothetical backtest above it, which only simulates current holdings. */
+function renderValueLog(){
+  const el=document.getElementById('portValueChart'); if(!el) return;
+  const entries=Object.entries(state.valueLog||{}).filter(([,e])=>e&&e.cur===state.baseCur&&e.v>0).sort((a,b)=>a[0]<b[0]?-1:1);
+  const cs=csym(state.baseCur);
+  if(!entries.length){ el.style.display='none'; return; }
+  el.style.display='block';
+  if(entries.length<2){
+    el.innerHTML=`<h2>📆 Your real value over time</h2>
+    <div class="loading">History starts today: <b>${entries[0][0]} — ${cs}${fmt(entries[0][1].v)}</b>.<br>Open this page again on another day and a chart grows here, one point per day — your <i>actual</i> account value, not a simulation.</div>`;
+    return;
+  }
+  const vals=entries.map(([,e])=>e.v), dates=entries.map(([k])=>k);
+  const w=560,h=180,pad=4;
+  const min=Math.min(...vals), max=Math.max(...vals), rng=(max-min)||1;
+  const X=i=>(pad+i/(vals.length-1)*(w-2*pad)).toFixed(1);
+  const Y=v=>(h-pad-(v-min)/rng*(h-2*pad)).toFixed(1);
+  const pts=vals.map((v,i)=>`${X(i)},${Y(v)}`).join(' ');
+  const chg=(vals[vals.length-1]/vals[0]-1)*100;
+  const col=chg>=0?'var(--up)':'var(--down)';
+  CHART_CTX['vl']={n:vals.length, w, h, pad, min, rng,
+    t:dates.map(k=>Math.floor(new Date(k+'T12:00:00').getTime()/1000)),
+    series:[{name:'account value', vals, cur:cs}]};
+  el.innerHTML=`<h2>📆 Your real value over time <span style="font-weight:400;text-transform:none;letter-spacing:0">— recorded each day you open the tracker (${dates.length} days)</span></h2>
+  <div class="chartwrap">
+  <svg viewBox="0 0 ${w} ${h}" onmousemove="chartMove(event,'vl')" onmouseleave="chartLeave('vl')">
+    <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.2"/>
+    <line id="chx-vl" x1="0" x2="0" y1="${pad}" y2="${h-pad}" stroke="var(--text)" stroke-width="1" opacity="0"/>
+    <circle id="chd-vl-0" r="3.5" fill="${col}" stroke="var(--bg)" stroke-width="1.5" opacity="0"/>
+  </svg>
+  <div class="ctip" id="ctip-vl"></div></div>
+  <div class="legend"><span><i style="background:${col}"></i>since ${dates[0]}: <b class="${cls(chg)}">${sign(chg)}%</b></span>
+  <span style="margin-left:auto">now: ${cs}${fmt(vals[vals.length-1])}</span></div>`;
+}
+
 /* ================= stock ideas scanner ================= */
 /* 30 quality candidates spread across sectors the user's tech-heavy portfolio under-owns */
 const IDEAS=[
@@ -2827,6 +2867,20 @@ async function refreshAll(quiet){
     derivePortfolioHoldings();
     saveCache();
     state.lastRefresh=Date.now();
+    /* record today's REAL portfolio value (one point per day) for the history chart */
+    (()=>{
+      const by={};
+      for(const t of state.tickers){ const h=state.holdings[t], d=state.data[t];
+        if(h&&d&&h.shares>0) by[d.currency]=(by[d.currency]||0)+h.shares*d.price; }
+      const curs=Object.keys(by); if(!curs.length) return;
+      let v=0;
+      for(const c of curs){ const x=convert(by[c],c); if(x==null) return; v+=x; }   /* skip until FX complete */
+      if(!(v>0)) return;
+      state.valueLog[new Date().toISOString().slice(0,10)]={v, cur:state.baseCur};
+      const ks=Object.keys(state.valueLog).sort();
+      while(ks.length>400) delete state.valueLog[ks.shift()];
+      saveState();
+    })();
     checkAlerts();
     const lite=state.tickers.filter(t=>state.data[t]&&state.data[t].lite).length;
     const stale=state.tickers.filter(t=>state.data[t]&&state.data[t].stale).length;
@@ -2990,9 +3044,26 @@ refreshAll();
 /* deep links for the LINE menu:  …/TrackingStocks.html#report opens the summary,
    #holdings / #watch / #mood / #portfolio jump straight to a tab. */
 function handleDeepLink(){
-  const h=(location.hash||'').toLowerCase().replace('#','');
+  const raw=(location.hash||'').replace('#','');
+  const h=raw.toLowerCase();
   if(!h) return;
-  if(h==='report'||h==='summary'){ switchTab('held'); setTimeout(openSummary, 1200); }
+  /* #t=SYM — arrive from a LINE stock reply straight onto that stock's full analysis */
+  const tm=raw.match(/^t=([A-Za-z0-9.\-^=%]+)/);
+  if(tm){
+    const symT=decodeURIComponent(tm[1]).toUpperCase();
+    if(!state.tickers.includes(symT)) quickAdd(symT);
+    switchTab(isHeld(symT)?'held':'watch');
+    let tries=0;
+    const iv=setInterval(()=>{
+      if(state.data[symT]){
+        clearInterval(iv);
+        switchTab(isHeld(symT)?'held':'watch');
+        select(symT);
+        const dEl=document.getElementById('detail'); if(dEl) dEl.scrollIntoView({behavior:'smooth',block:'start'});
+      } else if(++tries>20) clearInterval(iv);   /* give up quietly after ~16s */
+    }, 800);
+  }
+  else if(h==='report'||h==='summary'){ switchTab('held'); setTimeout(openSummary, 1200); }
   else if(h==='holdings'||h==='held'){ switchTab('held'); }
   else if(h==='watch'||h==='watchlist'||h==='live'||h==='update'){ switchTab('watch'); }
   else if(h==='ideas'){ switchTab('watch'); setTimeout(()=>{ const c=document.getElementById('ideasCard'); if(c) c.scrollIntoView(); scanIdeas(); }, 600); }

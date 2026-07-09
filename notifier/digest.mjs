@@ -210,3 +210,77 @@ export async function buildDigest(cfg) {
   ].join('\n');
   return { text, grand, day, mood, alerts };
 }
+
+/* ---------- chat commands (worker webhook replies) ---------- */
+const SITE = 'https://supakiat999.github.io/InvestmentReport/TrackingStocks.html';
+const RULE2 = '━━━━━━━━━━━━━';
+const fmtN = (n, dp = 2) => n == null || isNaN(n) ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
+const sgnN = (n, dp = 2) => (n >= 0 ? '+' : '') + fmtN(n, dp);
+
+/* "NVDA" / "PTT.BK" → one-stock analysis with a deep link into the tracker */
+export async function stockText(symRaw, cfg) {
+  const sym = String(symRaw || '').trim().toUpperCase();
+  const D = await sparkFetch([sym], '1y', 8);
+  const d = D[sym];
+  if (!d || d.closes.length < 30)
+    return `❓ Couldn't find "${sym}".\nSend the Yahoo Finance symbol — Thai stocks need .BK (e.g. PTT.BK), US stocks are plain (e.g. NVDA).\nType help for all commands.`;
+  const c = d.closes;
+  const v = verdicts(c);
+  const px = c[c.length - 1], prev = c[c.length - 2];
+  const day = (px / prev - 1) * 100;
+  const r1m = ret(c, 21), r1y = ret(c, 252) ?? ret(c, c.length - 1);
+  const mh = macdHist(c);
+  const w52 = c.slice(-252), hi = Math.max(...w52), lo = Math.min(...w52);
+  const pos = (px - lo) / ((hi - lo) || 1) * 100;
+  const L = [
+    `📊 ${sym}`,
+    RULE2,
+    `💵 ${fmtN(px)} · today ${sgnN(day)}%`,
+    `📈 1M ${r1m != null ? sgnN(r1m, 1) : '—'}% · 1Y ${r1y != null ? sgnN(r1y, 1) : '—'}%`,
+    `🔎 RSI ${v.rsi != null ? fmtN(v.rsi, 0) : '—'} · MACD ${mh == null ? '—' : mh > 0 ? '▲ rising' : '▼ falling'} · 52w ${fmtN(pos, 0)}%`,
+    '',
+    `📅 Weeks: ${v.stWord} ${v.st}/100`,
+    `🏛 Months+: ${v.ltWord} ${v.lt}/100`
+  ];
+  const h = cfg && cfg.holdings && cfg.holdings[sym];
+  if (h && h.shares > 0) {
+    const pl = h.cost > 0 ? (px / h.cost - 1) * 100 : null;
+    L.push('', `💼 You own ${fmtN(h.shares, h.shares % 1 ? 2 : 0)} sh${pl != null ? ` · P/L ${sgnN(pl, 1)}%` : ''}`);
+  }
+  L.push('', `Full analysis (chart · plan · why):`, `${SITE}#t=${encodeURIComponent(sym)}`, RULE2, 'chart signals only · not advice');
+  return L.join('\n');
+}
+
+/* "mood" → the market gauge with a plain-English read */
+export async function moodText() {
+  const M = await sparkFetch(['SPY', '^VIX', 'TLT', 'HYG'], '1y', 8);
+  const m = moodOf(M);
+  if (!m) return '❓ Market data unavailable right now — try again in a minute.';
+  const read = m.score < 25 ? 'Crowds are panicking — historically where the best long-term entries appeared.'
+    : m.score < 45 ? 'Investors are nervous; prices lean cautious.'
+    : m.score <= 55 ? 'No strong emotion either way — stock-picking matters more than timing.'
+    : m.score < 75 ? 'Investors are optimistic and chasing — be picky with new entries.'
+    : 'Crowds are euphoric — corrections often start from readings like this.';
+  return [
+    `🌡 MARKET MOOD`, RULE2,
+    `${m.score}/100 — ${m.label}${m.vix != null ? ` · VIX ${m.vix}` : ''}`,
+    read, '',
+    `Gauge & components:`, `${SITE}#mood`
+  ].join('\n');
+}
+
+/* "ideas" → the strongest charts you don't own, from the 30-name universe */
+export async function ideasText(cfg) {
+  const own = new Set(Object.keys((cfg && cfg.holdings) || {}));
+  const syms = IDEAS.filter(s => !own.has(s));
+  const I = await sparkFetch(syms, '1y', 8);
+  const ranked = syms.map(s => I[s] && I[s].closes.length > 200 ? { s, v: verdicts(I[s].closes) } : null)
+    .filter(Boolean).sort((a, b) => (b.v.lt * 2 + b.v.st) - (a.v.lt * 2 + a.v.st)).slice(0, 8);
+  if (!ranked.length) return '❓ Idea data unavailable right now — try again in a minute.';
+  return [
+    `💡 IDEAS — strongest charts you don't own`, RULE2,
+    ...ranked.map((x, i) => ` ${i + 1} ${x.s} — ${x.v.ltWord} ${x.v.lt}/100`),
+    '', 'Chart score only — research the business before buying.',
+    `Full 30-stock scanner:`, `${SITE}#ideas`
+  ].join('\n');
+}
