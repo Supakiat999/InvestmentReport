@@ -102,10 +102,9 @@ on the worker — keep KV values holdings-free (symbols + thresholds only).
 - Touch: `wrangler.jsonc` (KV binding), worker routing, digest alert merge.
 - Accept: set/list/clear from chat; triggered alert appears in the next report.
 
-### 3.3 `compare A B` command
-Two-symbol side-by-side (price, 1Y, RSI, verdicts) in one reply.
-- Touch: `digest.mjs` + routing.
-- Accept: `compare NVDA AMD` → aligned comparison text.
+### 3.3 `compare A B` command — ✅ DONE 2026-07-10
+Shipped together with cycle-stage tracking (`cycle`, `best`, `worst` commands) and the expanded
+indicator set (Bollinger %B, Stochastic %K, 50/200 cross, support/resistance, trail stop).
 
 ### 3.4 Hourly push noise control
 Env-var thresholds: skip the hourly broadcast when |today's move| < X% AND no alerts AND no

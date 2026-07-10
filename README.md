@@ -10,7 +10,7 @@ Everything runs on free tiers: GitHub Pages + Actions, Cloudflare Workers, LINE 
 
 | Surface | Capability |
 |---|---|
-| 📱 LINE chat | Type a ticker (`NVDA`, `PTT.BK`) → instant analysis · `mood` · `ideas` · `help` · `report` |
+| 📱 LINE chat | Type a ticker (`NVDA`, `PTT.BK`) → instant analysis with cycle stage, indicators & levels · edit holdings (`buy NVDA 5 @180`, `sell NVDA all`, `undo`) · `cycle` · `best` / `worst` · `compare A B` · `mood` · `ideas` · `holdings` · `help` · `report` |
 | 📱 LINE menu | 6 buttons: Report Now (in-chat reply) + deep links into the tracker |
 | ⏰ Hourly | Sectioned portfolio report (🎯 Do now → winners/losers → weak charts → ideas) during market hours |
 | 🖥️ Tracker | Watchlist/Holdings with 4-horizon Buy/Hold/Sell scoring, Action Center, market fear-greed gauge, trade plans, backtests, news, 30-stock idea scanner, real value history, printable report |

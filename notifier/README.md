@@ -10,11 +10,20 @@ Yahoo Finance (query1.finance.yahoo.com /v8/finance/spark, no key needed)
         │
         ▼
 digest.mjs ── shared engine ──────────────────────────────────────────────
-  sparkFetch(symbols)   batched price history (chunks of 8, 1y daily)
+  sparkFetch(symbols)   batched price history (chunks of 8, daily closes)
   verdicts(closes)      Weeks (st) + Months (lt) scores 0-100 → BUY…SELL words
+                        inputs: RSI14 · SMA20/50/200 · MACD hist · 1M/1Y returns ·
+                        52w position · Bollinger %B · Stochastic %K ·
+                        50/200 golden-death cross (≤60d) · cycle stage
+  stageOf(closes)       Weinstein cycle stage 1-4 (150-day MA slope + position):
+                        🟡 Base · 🟢 Uptrend · 🟠 Topping · 🔴 Downtrend
   moodOf(mkt)           fear/greed 0-100 from SPY/VIX/TLT/HYG
   buildDigest(cfg)      the full sectioned report (🎯 Do now → 🏆/💔 → ⚠️ → 💡)
-  stockText(sym, cfg)   single-ticker analysis reply (+ ownership line, #t= link)
+  stockText(sym, cfg)   single-ticker reply: cycle stage, indicators, support/
+                        resistance + trail stop, verdicts, ownership, #t= link
+  cycleText(cfg)        all holdings grouped by cycle stage
+  rankText(cfg, worst)  holdings top-5 strongest / weakest (long-term score)
+  compareText(a, b)     two symbols side by side
   moodText()            gauge + plain-English read
   ideasText(cfg)        top-8 not-owned from the 30-name IDEAS universe
         │                                    │
@@ -38,6 +47,11 @@ never cached and clear both caches so the next report reflects them.
 LINE userId to issue an edit is stored at KV key `owner`; everyone else gets refused — the
 owner should send `holdings` once right after any redeploy that wipes KV (it doesn't normally).
 Chat edits are bookkeeping only — nothing places real broker orders.
+
+**Analytics commands** (also owner-gated where they reveal holdings): `cycle`/`stages` →
+`cycleText` (every holding's Weinstein stage, grouped) · `best`/`top` and `worst`/`weak` →
+`rankText` (holdings ranked by long-term score) · `compare A B` / `vs A B` → `compareText`
+(open to anyone, cached like other informational replies).
 
 **Hourly schedule** now runs on the worker (`wrangler.jsonc → triggers.crons`, UTC, same hours
 as the old GitHub schedule). `.github/workflows/notify.yml` is **manual-dispatch only** — its

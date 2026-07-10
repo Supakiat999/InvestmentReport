@@ -5,7 +5,7 @@
         Replies are FREE on LINE — unlimited on-demand checks.
      3. Yahoo proxy (/yh?u=<url>): a private, always-up relay for TrackingStocks.html.
    Deploy:  wrangler deploy   (see SETUP.md) */
-import { buildDigest, stockText, moodText, ideasText } from './digest.mjs';
+import { buildDigest, stockText, moodText, ideasText, cycleText, rankText, compareText } from './digest.mjs';
 import { parseTrade, applyTrade, holdingsListText } from './holdings.mjs';
 
 let cached = null, cachedAt = 0;
@@ -20,6 +20,9 @@ const HELP = [
   '• sell NVDA 2 (or: sell NVDA all)',
   '• holdings — list what you own',
   '• undo — revert your last edit',
+  '• cycle — each holding\'s market stage',
+  '• best / worst — your holdings ranked',
+  '• compare NVDA AMD — side by side',
   '• mood — market fear/greed right now',
   "• ideas — strongest charts you don't own",
   '• report — full portfolio report',
@@ -80,11 +83,22 @@ async function routedReply(env, raw, userId) {
     const o = await getOverlay(env);
     return holdingsListText(cfg.holdings, o.updated);
   }
+  /* holdings-based analytics — owner-gated, always fresh (reflect the latest edits) */
+  if (low === 'cycle' || low === 'cycles' || low === 'stage' || low === 'stages') {
+    if (!await ownerOk(env, userId)) return '🔒 Only this bot\'s owner can view holdings.';
+    return cycleText(await getCfg(env));
+  }
+  if (low === 'best' || low === 'top' || low === 'worst' || low === 'weak') {
+    if (!await ownerOk(env, userId)) return '🔒 Only this bot\'s owner can view holdings.';
+    return rankText(await getCfg(env), low === 'worst' || low === 'weak');
+  }
   const hit = replyCache.get(low);
   if (hit && Date.now() - hit.t < 5 * 60e3) return hit.text;
   let out = null;
+  const cmp = txt.match(/^(?:compare|vs)\s+([A-Za-z0-9.\-^=]{1,14})\s+(?:vs\s+)?([A-Za-z0-9.\-^=]{1,14})$/i);
   if (low === 'mood' || low === 'market') out = await moodText();
   else if (low === 'idea' || low === 'ideas') out = await ideasText(await getCfg(env));
+  else if (cmp) out = await compareText(cmp[1], cmp[2]);
   else if (/^[a-z0-9.\-^=]{1,14}$/i.test(txt)) out = await stockText(txt, await getCfg(env));
   if (out == null) return digestText(env);   // multi-word chat → the full report, as before
   replyCache.set(low, { t: Date.now(), text: out });
