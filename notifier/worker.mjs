@@ -67,6 +67,14 @@ async function handleUndo(env, userId) {
   return '↩️ Reverted the last holdings edit. (“undo” again = redo · “holdings” to check)';
 }
 
+/* tappable quick-reply buttons shown under every bot reply — one tap sends the command */
+const QUICK = {
+  items: [
+    ['📊 Report', 'report'], ['🔄 Cycle', 'cycle'], ['🏆 Best', 'best'], ['⚠️ Worst', 'worst'],
+    ['💼 Holdings', 'holdings'], ['🌡 Mood', 'mood'], ['💡 Ideas', 'ideas'], ['❓ Help', 'help']
+  ].map(([label, text]) => ({ type: 'action', action: { type: 'message', label, text } }))
+};
+
 const replyCache = new Map();   // normalized command -> { t, text } (5-min TTL, small cap)
 async function routedReply(env, raw, userId) {
   const txt = String(raw || '').trim();
@@ -194,7 +202,7 @@ export default {
             const r = await fetch('https://api.line.me/v2/bot/message/reply', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok(env)}` },
-              body: JSON.stringify({ replyToken: ev.replyToken, messages: [{ type: 'text', text }] })
+              body: JSON.stringify({ replyToken: ev.replyToken, messages: [{ type: 'text', text, quickReply: QUICK }] })
             });
             if (!r.ok) console.log('LINE reply HTTP', r.status, (await r.text()).slice(0, 300));
             else console.log('LINE reply ok, text len', text.length);

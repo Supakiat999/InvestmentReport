@@ -40,7 +40,10 @@ owner-gated edit of the **HOLDINGS KV overlay** · `undo` → swap overlay with 
 `idea(s)` → ideasText · `report` / "📊 Report now" (menu tap) / multi-word text / postback →
 full digest · any other single word (≤14 chars, `[a-z0-9.\-^=]`) → stockText, whose not-found
 message doubles as the typo hint. Informational replies cached 5 min (Map, cap 50); trades are
-never cached and clear both caches so the next report reflects them.
+never cached and clear both caches so the next report reflects them. Every webhook reply
+carries **quick-reply buttons** (`QUICK` in worker.mjs — Report/Cycle/Best/Worst/Holdings/
+Mood/Ideas/Help) that appear above the keyboard, so commands are one tap instead of typing;
+LINE shows them on mobile only and they vanish once tapped (that's LINE behavior, max 13 items).
 
 **Holdings overlay & ownership:** `getCfg()` = `PORTFOLIO_JSON` secret merged with KV
 `overlay.holdings` (entry replaces, `null` deletes). Ownership is trust-on-first-use: the first
