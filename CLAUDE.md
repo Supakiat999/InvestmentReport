@@ -44,13 +44,17 @@ gitignored — read it locally for sensitive context).
 ## Architecture in one breath
 `TrackingStocks.html` = the whole frontend (state in localStorage, Yahoo Finance via public
 CORS relays). `notifier/digest.mjs` = shared analytics + message builders (report, stockText,
-moodText, ideasText). `notifier/worker.mjs` = Cloudflare worker: `/line` webhook, HMAC-verified,
-routes chat commands. `.github/workflows/notify.yml` = hourly broadcast (LINE+Telegram) during
-market hours. Rich menu = 6 buttons; "Report Now" sends text the webhook answers; 5 others
-deep-link into the tracker (`#live #holdings #mood #ideas #portfolio`, plus `#t=SYM` per-stock).
+moodText, ideasText). `notifier/holdings.mjs` = pure chat-trade logic (buy/sell/undo parsing +
+apply). `notifier/worker.mjs` = Cloudflare worker: `/line` webhook (HMAC-verified, routes chat
+commands, owner-gated holdings edits in the HOLDINGS KV overlay) **and the hourly cron push**
+(`wrangler.jsonc` triggers — moved off GitHub Actions 2026-07-09; `notify.yml` is manual-only
+now, never re-add its schedule or reports double-send). Rich menu = 6 buttons; "Report Now"
+sends text the webhook answers; 5 others deep-link into the tracker (`#live #holdings #mood
+#ideas #portfolio`, plus `#t=SYM` per-stock).
 
 ## Costs & quotas (stay free)
-Cloudflare free plan (no card; worker is webhook-only, no cron). LINE free tier ≈300 pushes/mo —
+Cloudflare free plan (no card; worker = webhook + hourly cron + HOLDINGS KV, all free tier —
+KV writes only on chat edits). LINE free tier ≈300 pushes/mo —
 the hourly schedule uses most of it; **replies are free/unlimited**, so build on replies, never
 add broadcast volume without checking `notifier/SETUP.md` quota math.
 

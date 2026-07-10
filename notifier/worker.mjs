@@ -6,6 +6,7 @@
      3. Yahoo proxy (/yh?u=<url>): a private, always-up relay for TrackingStocks.html.
    Deploy:  wrangler deploy   (see SETUP.md) */
 import { buildDigest, stockText, moodText, ideasText } from './digest.mjs';
+import { parseTrade, applyTrade, holdingsListText } from './holdings.mjs';
 
 let cached = null, cachedAt = 0;
 
@@ -15,18 +16,70 @@ const HELP = [
   '━━━━━━━━━━━━━',
   '• Send a ticker → instant analysis',
   '   e.g. NVDA · MSFT · PTT.BK',
+  '• buy NVDA 5 @180 — record a buy',
+  '• sell NVDA 2 (or: sell NVDA all)',
+  '• holdings — list what you own',
+  '• undo — revert your last edit',
   '• mood — market fear/greed right now',
   "• ideas — strongest charts you don't own",
   '• report — full portfolio report',
   '(the menu buttons below work too)'
 ].join('\n');
 
+/* ---------- holdings editing (owner-only, stored as a KV overlay on PORTFOLIO_JSON) ----------
+   The first LINE user to issue an edit becomes the owner (the bot's only friend); every later
+   edit must come from the same userId. This edits the bot's RECORDS — it never places orders. */
+async function ownerOk(env, userId) {
+  if (!env.HOLDINGS || !userId) return false;
+  const owner = await env.HOLDINGS.get('owner');
+  if (!owner) { await env.HOLDINGS.put('owner', userId); return true; }
+  return owner === userId;
+}
+const getOverlay = async env => (env.HOLDINGS && await env.HOLDINGS.get('overlay', 'json')) || { holdings: {} };
+
+async function handleTrade(env, userId, tr) {
+  if (!env.HOLDINGS) return '⚠️ Holdings editing is not set up on this bot yet.';
+  if (!await ownerOk(env, userId)) return '🔒 Only this bot\'s owner can edit holdings.';
+  const cfg = await getCfg(env);
+  const res = applyTrade(cfg.holdings, tr);
+  if (res.error) return '❓ ' + res.error;
+  const overlay = await getOverlay(env);
+  await env.HOLDINGS.put('overlay_prev', JSON.stringify(overlay));
+  overlay.holdings[tr.sym] = res.entry;          /* null = position closed */
+  overlay.updated = new Date().toISOString();
+  await env.HOLDINGS.put('overlay', JSON.stringify(overlay));
+  cached = null; replyCache.clear();             /* the very next report reflects the edit */
+  return res.summary + '\n(“undo” reverts · “holdings” lists · “report” shows the effect)';
+}
+
+async function handleUndo(env, userId) {
+  if (!env.HOLDINGS) return '⚠️ Holdings editing is not set up on this bot yet.';
+  if (!await ownerOk(env, userId)) return '🔒 Only this bot\'s owner can edit holdings.';
+  const prev = await env.HOLDINGS.get('overlay_prev', 'json');
+  if (!prev) return '❓ Nothing to undo yet.';
+  const curr = await getOverlay(env);
+  await env.HOLDINGS.put('overlay', JSON.stringify(prev));
+  await env.HOLDINGS.put('overlay_prev', JSON.stringify(curr));   /* undo twice = redo */
+  cached = null; replyCache.clear();
+  return '↩️ Reverted the last holdings edit. (“undo” again = redo · “holdings” to check)';
+}
+
 const replyCache = new Map();   // normalized command -> { t, text } (5-min TTL, small cap)
-async function routedReply(env, raw) {
+async function routedReply(env, raw, userId) {
   const txt = String(raw || '').trim();
   const low = txt.toLowerCase();
   if (!txt || low === 'report' || /report now/i.test(txt)) return digestText(env);
   if (low === 'help' || txt === '?') return HELP;
+  /* holdings editing — never cached, owner-only */
+  const tr = parseTrade(txt);
+  if (tr) return handleTrade(env, userId, tr);
+  if (low === 'undo') return handleUndo(env, userId);
+  if (low === 'holdings' || low === 'portfolio' || low === 'port') {
+    if (!await ownerOk(env, userId)) return '🔒 Only this bot\'s owner can view holdings.';
+    const cfg = await getCfg(env);
+    const o = await getOverlay(env);
+    return holdingsListText(cfg.holdings, o.updated);
+  }
   const hit = replyCache.get(low);
   if (hit && Date.now() - hit.t < 5 * 60e3) return hit.text;
   let out = null;
@@ -50,9 +103,23 @@ const tok = env => clean(env.LINE_CHANNEL_ACCESS_TOKEN);
 
 async function getCfg(env) {
   /* holdings live in a PRIVATE Worker secret — never in the public repo */
-  if (env.PORTFOLIO_JSON) return JSON.parse(clean(env.PORTFOLIO_JSON));
-  if (env.PORTFOLIO_URL) { const r = await fetch(env.PORTFOLIO_URL, { cf: { cacheTtl: 300 } }); return r.json(); }
-  throw new Error('No PORTFOLIO_JSON secret set');
+  let cfg;
+  if (env.PORTFOLIO_JSON) cfg = JSON.parse(clean(env.PORTFOLIO_JSON));
+  else if (env.PORTFOLIO_URL) { const r = await fetch(env.PORTFOLIO_URL, { cf: { cacheTtl: 300 } }); cfg = await r.json(); }
+  else throw new Error('No PORTFOLIO_JSON secret set');
+  /* chat edits (buy/sell commands) overlay the base: entry replaces, null deletes */
+  try {
+    if (env.HOLDINGS) {
+      const o = await env.HOLDINGS.get('overlay', 'json');
+      if (o && o.holdings) {
+        cfg.holdings = { ...cfg.holdings };
+        for (const [s, v] of Object.entries(o.holdings)) {
+          if (v === null) delete cfg.holdings[s]; else cfg.holdings[s] = v;
+        }
+      }
+    }
+  } catch (e) { console.log('overlay merge failed:', String(e)); }
+  return cfg;
 }
 async function digestText(env) {
   if (cached && Date.now() - cachedAt < 5 * 60e3) return cached;   // 5-min cache
@@ -108,7 +175,7 @@ export default {
                postbacks and non-text messages get the full report */
             if (!ev.replyToken || (ev.type !== 'message' && ev.type !== 'postback')) continue;
             const text = (ev.type === 'message' && ev.message && ev.message.type === 'text')
-              ? await routedReply(env, ev.message.text)
+              ? await routedReply(env, ev.message.text, ev.source && ev.source.userId)
               : await digestText(env);
             const r = await fetch('https://api.line.me/v2/bot/message/reply', {
               method: 'POST',

@@ -24,10 +24,24 @@ notify.mjs (GitHub Actions hourly)     worker.mjs (Cloudflare, always on)
   reads PORTFOLIO_JSON secret            routes chat commands → reply (free)
 ```
 
-**Command routing** (`worker.mjs → routedReply`): `help` → command list · `mood`/`market` →
-moodText · `idea(s)` → ideasText · `report` / "📊 Report now" (menu tap) / multi-word text /
-postback → full digest · any other single word (≤14 chars, `[a-z0-9.\-^=]`) → stockText, whose
-not-found message doubles as the typo hint. Replies cached 5 min (Map, cap 50).
+**Command routing** (`worker.mjs → routedReply`): `help` → command list · **trades** (`buy SYM
+QTY [@PRICE]` / `add …` / `sell SYM QTY|all` / `reduce …`, parsed by `holdings.mjs`) →
+owner-gated edit of the **HOLDINGS KV overlay** · `undo` → swap overlay with its previous copy
+(toggle = redo) · `holdings`/`port(folio)` → owner-gated list · `mood`/`market` → moodText ·
+`idea(s)` → ideasText · `report` / "📊 Report now" (menu tap) / multi-word text / postback →
+full digest · any other single word (≤14 chars, `[a-z0-9.\-^=]`) → stockText, whose not-found
+message doubles as the typo hint. Informational replies cached 5 min (Map, cap 50); trades are
+never cached and clear both caches so the next report reflects them.
+
+**Holdings overlay & ownership:** `getCfg()` = `PORTFOLIO_JSON` secret merged with KV
+`overlay.holdings` (entry replaces, `null` deletes). Ownership is trust-on-first-use: the first
+LINE userId to issue an edit is stored at KV key `owner`; everyone else gets refused — the
+owner should send `holdings` once right after any redeploy that wipes KV (it doesn't normally).
+Chat edits are bookkeeping only — nothing places real broker orders.
+
+**Hourly schedule** now runs on the worker (`wrangler.jsonc → triggers.crons`, UTC, same hours
+as the old GitHub schedule). `.github/workflows/notify.yml` is **manual-dispatch only** — its
+schedule must stay removed or every report sends twice (it also can't see KV edits).
 
 ## Deploys & routine operations
 

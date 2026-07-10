@@ -1,10 +1,21 @@
 {
   // Cloudflare Worker config — deploy from this folder with:  wrangler deploy
-  // This worker is WEBHOOK-ONLY (on-demand report in LINE chat). The hourly push is
-  // handled by GitHub Actions, so there is no cron here (avoids double-sending).
+  // The worker now owns BOTH jobs:
+  //   1. /line webhook — replies + chat commands (buy/sell edits live in the HOLDINGS KV)
+  //   2. hourly cron push — moved here from GitHub Actions so the hourly report always
+  //      includes chat edits (the GH workflow keeps manual dispatch only — never re-enable
+  //      its schedule while these crons exist, or every report sends twice)
   "name": "longview-notifier",
   "main": "worker.mjs",
-  "compatibility_date": "2026-06-01"
+  "compatibility_date": "2026-06-01",
+  "kv_namespaces": [
+    { "binding": "HOLDINGS", "id": "84aa08ab13b64421b9dfad74a896a407" }
+  ],
+  "triggers": {
+    // UTC. Thai SET 10:00-16:30 ICT + US NYSE/Nasdaq 09:30-16:00 ET, Mon-Fri (same as the
+    // old GitHub Actions schedule). LINE free tier ~300 pushes/mo — don't add hours blindly.
+    "crons": ["5 3-9 * * 1-5", "5 13-20 * * 1-5"]
+  }
   // Secrets (set once with wrangler, never committed):
   //   wrangler secret put LINE_CHANNEL_ACCESS_TOKEN
   //   wrangler secret put LINE_CHANNEL_SECRET

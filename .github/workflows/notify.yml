@@ -1,19 +1,12 @@
 name: Hourly stock notify
 
 on:
-  schedule:
-    # Hourly while a market your stocks trade on is OPEN (UTC; GitHub cron is UTC).
-    # Thailand SET 10:00–16:30 ICT  = 03:00–09:30 UTC
-    - cron: '5 3-9 * * 1-5'
-    # USA NYSE/Nasdaq 09:30–16:00 ET = 13:30–20:00 UTC
-    - cron: '5 13-20 * * 1-5'
-    # Add other markets here if you buy them, e.g.:
-    #   Tokyo  09:00–15:00 JST = 00:00–06:00 UTC ->  '5 0-6 * * 1-5'
-    #   Hong Kong 09:30–16:00 HKT = 01:30–08:00 UTC -> '5 1-8 * * 1-5'
-    #   London 08:00–16:30 GMT = 08:00–16:30 UTC ->  '5 8-16 * * 1-5'
-    # NOTE: Thai+US hourly ≈ 15 msgs/weekday ≈ 330/month. LINE free tier = 300/month,
-    # so it may cap late in the month — add Telegram (unlimited) to never miss one.
-  workflow_dispatch: {}   # lets you trigger a test run from the Actions tab anytime
+  # SCHEDULE MOVED to the Cloudflare Worker (notifier/wrangler.jsonc "triggers.crons") on
+  # 2026-07-09 so the hourly report includes holdings edited via LINE chat (KV overlay —
+  # this workflow reads the static PORTFOLIO_JSON secret and can't see those edits).
+  # Do NOT re-add a schedule here while the worker crons exist: every report would send twice.
+  # Old schedule for reference: '5 3-9 * * 1-5' (Thai SET) + '5 13-20 * * 1-5' (US), UTC.
+  workflow_dispatch: {}   # manual test runs from the Actions tab still work
 
 permissions:
   contents: read
