@@ -75,12 +75,17 @@ const QUICK = {
   ].map(([label, text]) => ({ type: 'action', action: { type: 'message', label, text } }))
 };
 
+/* casual chat words must never be mistaken for ticker symbols ("hi" ≠ a stock) */
+const CHATTER = new Set(['hi', 'hii', 'hello', 'hey', 'ho', 'yo', 'sup', 'ok', 'okay', 'k', 'kk',
+  'thanks', 'thank', 'thx', 'ty', 'cool', 'nice', 'good', 'great', 'wow', 'lol', 'haha', '555',
+  'hmm', 'huh', 'yes', 'yeah', 'no', 'nope', 'test', 'ping', 'start', 'menu', 'hallo', 'oi']);
+
 const replyCache = new Map();   // normalized command -> { t, text } (5-min TTL, small cap)
 async function routedReply(env, raw, userId) {
   const txt = String(raw || '').trim();
-  const low = txt.toLowerCase();
+  const low = txt.toLowerCase().replace(/[!.?]+$/, '');
   if (!txt || low === 'report' || /report now/i.test(txt)) return digestText(env);
-  if (low === 'help' || txt === '?') return HELP;
+  if (low === 'help' || txt === '?' || CHATTER.has(low)) return HELP;
   /* holdings editing — never cached, owner-only */
   const tr = parseTrade(txt);
   if (tr) return handleTrade(env, userId, tr);
@@ -199,11 +204,18 @@ export default {
             const text = (ev.type === 'message' && ev.message && ev.message.type === 'text')
               ? await routedReply(env, ev.message.text, ev.source && ev.source.userId)
               : await digestText(env);
-            const r = await fetch('https://api.line.me/v2/bot/message/reply', {
+            /* stock replies get a tappable "Open chart" button pointing at their deep link */
+            const deep = text.match(/https:\/\/\S+#t=[A-Za-z0-9.\-^=%]+/);
+            const quick = deep
+              ? { items: [{ type: 'action', action: { type: 'uri', label: '📈 Open chart', uri: deep[0] } }, ...QUICK.items] }
+              : QUICK;
+            const send = q => fetch('https://api.line.me/v2/bot/message/reply', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok(env)}` },
-              body: JSON.stringify({ replyToken: ev.replyToken, messages: [{ type: 'text', text, quickReply: QUICK }] })
+              body: JSON.stringify({ replyToken: ev.replyToken, messages: [{ type: 'text', text, quickReply: q }] })
             });
+            let r = await send(quick);
+            if (!r.ok && r.status === 400 && deep) r = await send(QUICK);   /* uri item rejected → plain buttons */
             if (!r.ok) console.log('LINE reply HTTP', r.status, (await r.text()).slice(0, 300));
             else console.log('LINE reply ok, text len', text.length);
           }

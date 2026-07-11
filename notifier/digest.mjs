@@ -275,7 +275,7 @@ export async function stockText(symRaw, cfg) {
   const D = await sparkFetch([sym], '2y', 8);   /* 2y so the 50/200 cross has history */
   const d = D[sym];
   if (!d || d.closes.length < 30)
-    return `❓ Couldn't find "${sym}".\nSend the Yahoo Finance symbol — Thai stocks need .BK (e.g. PTT.BK), US stocks are plain (e.g. NVDA).\nType help for all commands.`;
+    return `❓ I don't know a stock called "${sym}".\nIf you meant a stock, send its Yahoo symbol — Thai stocks need .BK (PTT.BK), US stocks are plain (NVDA).\nOr just tap a button below 👇`;
   const c = d.closes;
   const v = verdicts(c);
   const px = c[c.length - 1], prev = c[c.length - 2];
