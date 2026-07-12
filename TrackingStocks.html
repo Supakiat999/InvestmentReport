@@ -74,6 +74,48 @@ main{grid-template-columns:1fr 1fr;gap:16px;padding:14px 22px 30px;max-width:132
 #totop.show{display:block}
 @media print{#totop{display:none!important}}
 
+/* mobile slide-up sheet for the Details card */
+#sheetBack{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:90}
+#sheetBack.show{display:block}
+#sheet{position:fixed;left:0;right:0;bottom:0;top:7%;z-index:95;background:var(--bg);border:1px solid var(--line);border-bottom:none;border-radius:18px 18px 0 0;transform:translateY(105%);transition:transform .28s cubic-bezier(.3,.8,.4,1);display:flex;flex-direction:column;box-shadow:0 -8px 30px rgba(0,0,0,.5)}
+#sheet.open{transform:none}
+.sheet-bar{display:flex;align-items:center;justify-content:center;position:relative;padding:10px 12px 6px;touch-action:none}
+.sheet-handle{width:44px;height:5px;border-radius:3px;background:var(--line)}
+.sheet-x{position:absolute;right:10px;top:8px}
+#sheetBody{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;padding:0 12px 26px}
+#sheetBody>.card{border:none;background:transparent;padding:4px 2px 16px}
+
+/* mobile bottom navigation */
+.bnav{display:none}
+@media(max-width:600px){
+  .tabs{display:none}
+  .bnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:70;background:var(--surface);border-top:1px solid var(--line);padding:5px 4px calc(6px + env(safe-area-inset-bottom,0px))}
+  .bnav button{flex:1;background:none;border:none;color:var(--dim);font-family:var(--ui);font-size:10px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 0}
+  .bnav button .bi{font-size:19px;line-height:1.2}
+  .bnav button.act{color:var(--gold)}
+  main{padding-bottom:92px}
+  #totop{bottom:78px}
+  .snap{margin-top:8px}
+}
+
+/* pull-to-refresh pill */
+#ptr{display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:85;background:var(--surface2);border:1px solid var(--gold);color:var(--gold);border-radius:20px;padding:7px 16px;font-family:var(--ui);font-size:12px;font-weight:600;opacity:0}
+#ptr.show{display:block}
+
+/* collapsible secondary cards (folded by default on mobile) */
+.card.fold>h2{cursor:pointer;user-select:none}
+.card.fold>h2::after{content:'  ▾';color:var(--dim)}
+.card.collapsed>h2::after{content:'  ▸'}
+.card.collapsed>h2{margin-bottom:0}
+.card.collapsed>*:not(h2){display:none}
+
+/* mobile: comfortable tap targets */
+@media(max-width:600px){
+  .rowtog{padding:10px 6px;margin:-10px 0 -10px -6px;width:auto}
+  #wl .btn.sm{padding:8px 12px}
+  th{padding:12px 6px}
+}
+
 .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
 .card h2{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);margin-bottom:12px;font-weight:600}
 .full{grid-column:1/-1}
@@ -130,6 +172,13 @@ tbody tr.sel{background:var(--surface2);box-shadow:inset 3px 0 0 var(--gold)}
 .axn-b{flex:1;font-size:12.5px;line-height:1.5}
 .axn-b b{font-family:var(--mono)}
 .axn-disc{font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5}
+
+/* 🔄 market-cycle overview groups */
+.cyc-g{padding:8px 0;border-bottom:1px solid var(--line)}
+.cyc-g:last-of-type{border-bottom:none}
+.cyc-h{font-family:var(--ui);font-size:12px;font-weight:600;margin-bottom:6px}
+.cyc-n{color:var(--dim);font-weight:400;margin-left:4px}
+.cyc-t .pick{margin:0 5px 5px 0}
 
 .wlsearch{width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 12px;font-size:13px;font-family:var(--ui);margin-bottom:10px}
 .wlsearch:focus{outline:none;border-color:var(--gold)}
@@ -362,6 +411,8 @@ textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
 
   <div class="card full" id="actionsCard" style="display:none"></div>
 
+  <div class="card full" id="cycleCard" style="display:none"></div>
+
   <div class="card">
     <h2>Watchlist <span style="font-weight:400;text-transform:none;letter-spacing:0">— click headers to sort, click a row for details</span></h2>
     <input id="wlsearch" class="wlsearch" type="search" placeholder="🔍 Filter by ticker or name…" oninput="setSearch(this.value)" autocomplete="off">
@@ -369,12 +420,12 @@ textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
     <div id="wl"><div class="loading">Starting up…</div></div>
   </div>
 
-  <div class="card" id="detail">
+  <div id="detailSlot" style="display:contents"><div class="card" id="detail">
     <h2>Details</h2>
     <div class="loading">Select a stock from the watchlist to see its chart, score breakdown, and what every number means.</div>
-  </div>
+  </div></div>
 
-  <div class="card">
+  <div class="card fold">
     <h2>📰 News <span style="font-weight:400;text-transform:none;letter-spacing:0">— latest headlines per ticker</span></h2>
     <div class="news-tabs" id="newsTabs"></div>
     <div id="news"><div class="loading">Select a stock or pick a ticker above to load its news.</div></div>
@@ -387,22 +438,22 @@ textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
 
   <div class="card full" id="planCard" style="display:none"></div>
 
-  <div class="card full" id="recoWhy">
+  <div class="card full fold" id="recoWhy">
     <h2>🧠 Why buy or sell — the full reasoning, value by value</h2>
     <div class="loading">Select a stock above. This section walks through every number used in the verdicts and explains, in plain English, why each one pushes toward buy or sell.</div>
   </div>
 
   <div class="card full" id="btCard" style="display:none"></div>
 
-  <div class="card full" id="ideasCard">
+  <div class="card full fold" id="ideasCard">
     <h2>💡 Stock ideas — scan 30 quality names you don't own yet</h2>
     <div style="font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:10px">One click fetches live data for 30 widely-followed, profitable large-caps and ETFs across different sectors (healthcare, payments, retail, energy, industrials, utilities, transport… — areas your tech-heavy portfolio barely touches) and ranks them with the same transparent scoring used on your watchlist. All 30 are <b>research starting points, not instructions</b>.</div>
     <button class="btn gold" id="ideasBtn" onclick="scanIdeas()">🔍 Scan ideas now</button>
     <div id="ideasOut"></div>
   </div>
 
-  <div class="card full">
-    <h2>Quick add — Thai &amp; international <button class="btn sm" style="float:right" onclick="document.getElementById('dir').style.display=document.getElementById('dir').style.display==='none'?'block':'none'">show / hide</button></h2>
+  <div class="card full fold">
+    <h2>Quick add — Thai &amp; international <button class="btn sm" style="float:right" onclick="event.stopPropagation();document.getElementById('dir').style.display=document.getElementById('dir').style.display==='none'?'block':'none'">show / hide</button></h2>
     <div id="dir"></div>
   </div>
 
@@ -447,6 +498,24 @@ textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
 
 <!-- private holdings (gitignored; absent on the public host = no personal data served) -->
 <button id="totop" title="back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<!-- mobile slide-up sheet: the Details card is moved in here by openSheet() -->
+<div id="sheetBack" onclick="closeSheet()"></div>
+<div id="sheet" role="dialog" aria-label="stock details">
+  <div class="sheet-bar" id="sheetBar"><span class="sheet-handle"></span><button class="btn sm sheet-x" onclick="closeSheet()">✕ close</button></div>
+  <div id="sheetBody"></div>
+</div>
+
+<!-- mobile bottom navigation (top tabs are hidden ≤600px) -->
+<nav class="bnav" id="bnav">
+  <button id="bn-watch" onclick="bnavTap('watch')"><span class="bi">📌</span>Watch</button>
+  <button id="bn-held" onclick="bnavTap('held')"><span class="bi">💹</span>Holdings</button>
+  <button id="bn-mood" onclick="bnavTap('mood')"><span class="bi">🌡</span>Mood</button>
+  <button id="bn-port" onclick="bnavTap('port')"><span class="bi">💼</span>Portfolio</button>
+</nav>
+
+<!-- pull-to-refresh pill -->
+<div id="ptr">↻ pull to refresh</div>
 
 <script src="portfolio-seed.js" onerror="window.__noSeed=1"></script>
 <script>
@@ -832,6 +901,36 @@ function verdictOf(score){
   if(score>44)  return {word:'HOLD', cls:'v-hold', chip:'mid'};
   if(score>=33) return {word:'REDUCE', cls:'v-lean-s', chip:'lean-s'};
   return {word:'SELL', cls:'v-sell', chip:'bear'};
+}
+
+/* ---- market-cycle stage (Weinstein 150-day-average method, same math as the LINE bot) ---- */
+const STAGE_META={
+  1:{emoji:'🟡',name:'Base (accumulation)',why:'the long average flattened after a decline — watch for a breakout above it'},
+  2:{emoji:'🟢',name:'Uptrend (markup)',why:'price above a rising 150-day average — the stage trend-followers want to own'},
+  3:{emoji:'🟠',name:'Topping (distribution)',why:'the long average is flattening after an advance — tighten stops, be slow to add'},
+  4:{emoji:'🔴',name:'Downtrend (markdown)',why:'price below a falling 150-day average — the stage where big losses happen'}
+};
+/* stage per day (rolling O(n)) — null where there isn't ≥170 days of history yet */
+function stageSeries(closes){
+  const n=closes.length, out=new Array(n).fill(null);
+  if(n<171) return out;
+  const N=150, ma=new Array(n).fill(null);
+  let s=0;
+  for(let i=0;i<n;i++){ s+=closes[i]; if(i>=N) s-=closes[i-N]; if(i>=N-1) ma[i]=s/N; }
+  for(let i=170;i<n;i++){
+    const m=ma[i], m20=ma[i-20], m60=(i-60>=N-1)?ma[i-60]:null;
+    if(m==null||m20==null) continue;
+    const slope20=(m/m20-1)*100;
+    const slope60=m60!=null?(m/m60-1)*100:slope20;
+    const above=closes[i]>m;
+    out[i]= (above&&slope20>1)?2 : (!above&&slope20<-1)?4 : (slope60<=0?1:3);
+  }
+  return out;
+}
+function stageOf(closes){
+  if(!closes||closes.length<171) return null;
+  const s=stageSeries(closes), n=s[s.length-1];
+  return n?{n,...STAGE_META[n]}:null;
 }
 
 function recoOf(d){
@@ -1517,8 +1616,10 @@ const COLS_HELD=[['sym','Ticker'],['price','Price'],['chgPct','Day %'],['val','V
 /* four compact letter-chips: Days, Weeks, Months, Years — hover any letter for the verdict */
 function miniChips(d){
   const r=recoOf(d);
-  return [['D',r.d1,'Days (1–10 days, quick trades)'],['W',r.st,'Weeks (2–8 weeks, swing trades)'],
-          ['M',r.lt,'Months (6–18 months, investing)'],['Y',r.yr,'Years (3–5+ yrs, wealth building)']]
+  const st=stageOf(d.closes);
+  return (st?`<span class="chip mini" title="Cycle: Stage ${st.n} — ${st.name}. ${esc(st.why)}">${st.emoji}S${st.n}</span>`:'')
+    + [['D',r.d1,'Days (1–10 days, quick trades)'],['W',r.st,'Weeks (2–8 weeks, swing trades)'],
+       ['M',r.lt,'Months (6–18 months, investing)'],['Y',r.yr,'Years (3–5+ yrs, wealth building)']]
     .map(([L,h,tip])=>`<span class="chip mini ${h.v.chip}" title="${tip}: ${h.v.word} — score ${h.score}/100. Click the row for the full explanation.">${L}</span>`).join('');
 }
 
@@ -1586,6 +1687,7 @@ function rowDetailHTML(t,d){
   return `<div class="rd-inner">
     <div class="rd-name">${esc(d.name||t)}${d.stale?' · <span class="stale">⏱ saved data</span>':''}</div>
     ${chart}
+    ${(()=>{const st=stageOf(d.closes); return st?`<div class="rd-why"><b>🔄 Cycle:</b> Stage ${st.n} ${st.emoji} ${esc(st.name)} — ${esc(st.why)}</div>`:'';})()}
     <div class="rd-grid">
       ${m('Price', csym(d.currency)+fmt(d.price))}
       ${m('Today', sign(d.chgPct)+'%', cls(d.chgPct))}
@@ -1754,11 +1856,27 @@ function chartSVG(d){
     costLine=`<line x1="${pad}" x2="${w-pad}" y1="${Y(hold.cost)}" y2="${Y(hold.cost)}" stroke="var(--text)" stroke-width="1" stroke-dasharray="2,5" opacity="0.55"/>
     <text x="${w-pad-2}" y="${+Y(hold.cost)-4}" text-anchor="end" fill="var(--text)" opacity="0.7" font-size="10" font-family="IBM Plex Mono">your avg cost ${fmt(hold.cost)}</text>`;
   }
+  /* cycle-stage background bands: green=uptrend, orange=topping, gold=base, red=downtrend */
+  let bands='';
+  {
+    const stg=stageSeries(d.closes).slice(off);
+    const SCOL={1:'#E8B44C',2:'#4FCB8B',3:'#F0885A',4:'#F07474'};
+    let rs=null, rv=null;
+    for(let i=0;i<=stg.length;i++){
+      const v=i<stg.length?stg[i]:null;
+      if(v!==rv){
+        if(rv!=null){ const x0=+X(rs), x1=+X(Math.max(rs,i-1));
+          bands+=`<rect x="${x0}" y="${pad}" width="${Math.max(0.5,x1-x0).toFixed(1)}" height="${h-2*pad}" fill="${SCOL[rv]}" opacity="0.09"/>`; }
+        rs=i; rv=v;
+      }
+    }
+  }
   const id='dtl';
   CHART_CTX[id]={n:c.length, w, h, pad, min, rng, t:times,
     series:[{name:'price', vals:c, cur:csym(d.currency)}]};
   return `<div class="chartwrap">
-  <svg viewBox="0 0 ${w} ${h}" role="img" aria-label="price chart with moving averages" onmousemove="chartMove(event,'${id}')" onmouseleave="chartLeave('${id}')">
+  <svg viewBox="0 0 ${w} ${h}" role="img" aria-label="price chart with moving averages and cycle-stage background" onmousemove="chartMove(event,'${id}')" onmouseleave="chartLeave('${id}')">
+    ${bands}
     <polygon points="${pad},${h-pad} ${main} ${X(c.length-1)},${h-pad}" fill="${col}" opacity="0.07"/>
     ${line(s200,'var(--gold)',1.5,'5,4')}
     ${line(s50,'#7FB8C9',1.5,'2,3')}
@@ -1813,6 +1931,7 @@ function renderDetail(){
   <div class="chg ${cls(d.chg)}">${sign(d.chg)} (${sign(d.chgPct)}%) today</div></div>
   <div class="ranges">${['1M','3M','6M','1Y','5Y'].map(r=>`<button class="btn sm ${state.range===r?'on':''}" onclick="setRange('${r}')">${r}</button>`).join('')}</div>
   ${chartSVG(d)}
+  ${(()=>{const st=stageOf(d.closes); return st?`<div style="font-size:10.5px;color:var(--dim);margin:2px 0 10px;line-height:1.5">chart background = cycle stage · now: <b style="color:var(--text)">${st.emoji} Stage ${st.n} — ${esc(st.name)}</b>. ${esc(st.why)}.</div>`:'';})()}
   ${gauge}
   ${metrics}
 
@@ -2712,8 +2831,11 @@ function switchTab(name){
   const pane = (name==='watch'||name==='held') ? 'dash' : name;
   for(const n of ['dash','mood','port'])
     document.getElementById('tab-'+n).className='tabpane'+(n===pane?' act':'');
-  for(const n of ['watch','held','mood','port'])
+  for(const n of ['watch','held','mood','port']){
     document.getElementById('tb-'+n).className='tabbtn'+(n===name?' act':'');
+    const b=document.getElementById('bn-'+n); if(b) b.className=(n===name?'act':'');
+  }
+  if(typeof closeSheet==='function') closeSheet();
   if(name==='mood') renderMood();
   else if(name==='port') renderPortfolio();
   else renderWatchlist();
@@ -2732,6 +2854,7 @@ function select(t){
   state.sel=t; saveState();
   renderWatchlist(); renderDetail(); renderReco();
   state.newsSel=t; renderNews(); loadNews(t);
+  if(isMobile()) openSheet();   /* phone: details slide up as a sheet instead of living far below */
 }
 function setRange(r){ state.range=r; saveState(); renderDetail(); }
 function saveHolding(t){
@@ -2970,7 +3093,27 @@ function renderActions(){
     <div class="axn-disc">Ranked: alerts first, then weak charts you own, then strong charts you don't. These read <b>only the chart</b> — check the business, valuation and news before acting. Not financial advice.</div>`;
 }
 
-function renderAll(){ renderTape(); renderSnapshot(); renderSummary(); renderActions(); renderWatchlist(); renderDetail(); renderReco(); }
+/* 🔄 market-cycle overview — every tracked stock grouped by its Weinstein stage */
+function renderCycle(){
+  const el=document.getElementById('cycleCard'); if(!el) return;
+  const groups={2:[],3:[],1:[],4:[]};
+  let any=false;
+  for(const t of state.tickers){
+    const d=state.data[t]; if(!d||d.manual) continue;
+    const st=stageOf(d.closes); if(!st) continue;
+    groups[st.n].push(t); any=true;
+  }
+  if(!any){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='';
+  const G=n=>{ const m=STAGE_META[n]; return groups[n].length?`
+    <div class="cyc-g"><div class="cyc-h">${m.emoji} Stage ${n} · ${esc(m.name)}<span class="cyc-n">${groups[n].length} · ${esc(m.why)}</span></div>
+    <div class="cyc-t">${groups[n].map(t=>`<span class="pick" onclick="select('${t}')">${t}</span>`).join('')}</div></div>`:''; };
+  el.innerHTML=`<h2>🔄 Market cycle <span style="font-weight:400;text-transform:none;letter-spacing:0">— where each stock sits in its cycle (150-day average method) · tap a ticker for details</span></h2>
+  ${G(2)}${G(3)}${G(1)}${G(4)}
+  <div class="axn-disc">Stage 2 uptrends are the trend-follower's home; Stage 4 downtrends are where the big losses happen. Chart-based only — not financial advice.</div>`;
+}
+
+function renderAll(){ renderTape(); renderSnapshot(); renderSummary(); renderActions(); renderCycle(); renderWatchlist(); renderDetail(); renderReco(); }
 
 function toggleAuto(){
   const on=document.getElementById('auto').checked;
@@ -3083,6 +3226,70 @@ handleDeepLink();
 window.addEventListener('hashchange', handleDeepLink);
 /* floating ↑ appears once you've scrolled a screen down */
 window.addEventListener('scroll', ()=>{ document.getElementById('totop').classList.toggle('show', window.scrollY>500); }, {passive:true});
+
+/* ================= phone flow: sheet, bottom nav, pull-to-refresh ================= */
+function isMobile(){ return window.matchMedia('(max-width:600px)').matches; }   /* same breakpoint as the CSS */
+var sheetOpenFlag=false;   /* var: hoisted-safe — switchTab() runs during init, before this line */
+function openSheet(){
+  if(sheetOpenFlag){ document.getElementById('sheetBody').scrollTop=0; return; }
+  document.getElementById('sheetBody').appendChild(document.getElementById('detail'));
+  document.getElementById('sheetBack').classList.add('show');
+  const sh=document.getElementById('sheet');
+  sh.getBoundingClientRect();          /* flush layout so the slide-up transition runs */
+  sh.classList.add('open');
+  document.body.style.overflow='hidden';
+  sheetOpenFlag=true;
+}
+function closeSheet(){
+  if(!sheetOpenFlag) return;
+  document.getElementById('sheet').classList.remove('open');
+  document.getElementById('sheetBack').classList.remove('show');
+  document.body.style.overflow='';
+  document.getElementById('detailSlot').appendChild(document.getElementById('detail'));
+  sheetOpenFlag=false;
+}
+/* drag the handle down to dismiss */
+(()=>{
+  const bar=document.getElementById('sheetBar'), sheet=document.getElementById('sheet');
+  let y0=null;
+  bar.addEventListener('touchstart',e=>{ y0=e.touches[0].clientY; sheet.style.transition='none'; },{passive:true});
+  bar.addEventListener('touchmove',e=>{ if(y0==null)return; const dy=Math.max(0,e.touches[0].clientY-y0); sheet.style.transform=`translateY(${dy}px)`; },{passive:true});
+  bar.addEventListener('touchend',e=>{
+    if(y0==null)return;
+    const dy=Math.max(0,e.changedTouches[0].clientY-y0);
+    sheet.style.transition=''; sheet.style.transform='';
+    if(dy>90) closeSheet();
+    y0=null;
+  },{passive:true});
+})();
+function bnavTap(n){ if(state.tab===n && !sheetOpenFlag){ window.scrollTo({top:0,behavior:'smooth'}); } else switchTab(n); }
+(function initBnav(){ const b=document.getElementById('bn-'+(state.tab||'watch')); if(b) b.className='act'; })();
+
+/* pull-to-refresh (touch only, at the very top, sheet closed) */
+(()=>{
+  const pill=document.getElementById('ptr');
+  let y0=null;
+  window.addEventListener('touchstart',e=>{ y0=(window.scrollY===0 && !sheetOpenFlag)?e.touches[0].clientY:null; },{passive:true});
+  window.addEventListener('touchmove',e=>{
+    if(y0==null)return;
+    const dy=e.touches[0].clientY-y0;
+    if(dy>14){ pill.classList.add('show'); pill.style.opacity=Math.min(1,dy/90); pill.textContent=dy>90?'↻ release to refresh':'↻ pull to refresh'; }
+  },{passive:true});
+  window.addEventListener('touchend',e=>{
+    if(y0==null)return;
+    const dy=e.changedTouches[0].clientY-y0;
+    pill.classList.remove('show'); pill.style.opacity=''; pill.textContent='↻ pull to refresh';
+    if(dy>90){ setStatus('Refreshing…'); refreshAll(); }
+    y0=null;
+  },{passive:true});
+})();
+/* coming back to the app after a while → refresh quietly */
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden && state.lastRefresh && Date.now()-state.lastRefresh>10*60e3) refreshAll(true);
+});
+/* secondary cards start folded on phones (tap the title to open) */
+document.querySelectorAll('.card.fold>h2').forEach(h=>h.addEventListener('click',()=>h.parentElement.classList.toggle('collapsed')));
+if(isMobile()) document.querySelectorAll('.card.fold').forEach(c=>c.classList.add('collapsed'));
 </script>
 </body>
 </html>
