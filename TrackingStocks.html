@@ -173,6 +173,13 @@ tbody tr.sel{background:var(--surface2);box-shadow:inset 3px 0 0 var(--gold)}
 .axn-b b{font-family:var(--mono)}
 .axn-disc{font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5}
 
+/* 📰 merged holdings news feed */
+.feed-i{padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px;line-height:1.5;white-space:normal}
+.feed-i:last-child{border-bottom:none}
+.feed-i a{color:var(--text);text-decoration:none}
+.feed-i a:hover{color:var(--gold)}
+.feed-age{display:block;color:var(--dim);font-size:10.5px;margin-top:2px}
+
 /* 🔄 market-cycle overview groups */
 .cyc-g{padding:8px 0;border-bottom:1px solid var(--line)}
 .cyc-g:last-of-type{border-bottom:none}
@@ -413,6 +420,8 @@ textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
 
   <div class="card full" id="cycleCard" style="display:none"></div>
 
+  <div class="card full" id="alertsCard" style="display:none"></div>
+
   <div class="card">
     <h2>Watchlist <span style="font-weight:400;text-transform:none;letter-spacing:0">— click headers to sort, click a row for details</span></h2>
     <input id="wlsearch" class="wlsearch" type="search" placeholder="🔍 Filter by ticker or name…" oninput="setSearch(this.value)" autocomplete="off">
@@ -424,6 +433,11 @@ textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
     <h2>Details</h2>
     <div class="loading">Select a stock from the watchlist to see its chart, score breakdown, and what every number means.</div>
   </div></div>
+
+  <div class="card full fold collapsed" id="feedCard">
+    <h2>📰 Your holdings news <span style="font-weight:400;text-transform:none;letter-spacing:0">— one merged feed for what you own · tap to load</span></h2>
+    <div id="feed"><div class="loading">Tap the title to load headlines for your biggest holdings.</div></div>
+  </div>
 
   <div class="card fold">
     <h2>📰 News <span style="font-weight:400;text-transform:none;letter-spacing:0">— latest headlines per ticker</span></h2>
@@ -487,6 +501,7 @@ textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
   <div class="card" id="portDivs" style="display:none"></div>
   <div class="card full" id="portHist" style="display:none"></div>
   <div class="card full" id="portValueChart" style="display:none"></div>
+  <div class="card full" id="rebalCard" style="display:none"></div>
   <div class="card full" id="portCorr" style="display:none"></div>
 </main>
 
@@ -1386,7 +1401,8 @@ let state = {
   baseCur:'USD', riskPct:2, accountSize:0, notify:false, notified:{},
   lastVerdicts:{}, briefDismissed:'', mkt:{}, fx:{},
   portLoaded:false, pendingPortfolio:false, ideas:{at:0, list:null, loading:false},
-  valueLog:{}   /* real account value, one point per visit-day: 'YYYY-MM-DD' -> {v, cur} */
+  valueLog:{},  /* real account value, one point per visit-day: 'YYYY-MM-DD' -> {v, cur} */
+  targets:{}    /* rebalance helper: ticker -> target weight % */
 };
 
 function saveState(){
@@ -1397,7 +1413,7 @@ function saveState(){
       sortKey:state.sortKey, sortDir:state.sortDir, tab:state.tab, groupFilter:state.groupFilter,
       baseCur:state.baseCur, riskPct:state.riskPct, accountSize:state.accountSize,
       notify:state.notify, lastVerdicts:state.lastVerdicts, briefDismissed:state.briefDismissed,
-      portLoaded:state.portLoaded, pendingPortfolio:state.pendingPortfolio, valueLog:state.valueLog
+      portLoaded:state.portLoaded, pendingPortfolio:state.pendingPortfolio, valueLog:state.valueLog, targets:state.targets
     }));
     const b=document.getElementById('savebadge');
     if(b) b.textContent='💾 saved '+new Date().toLocaleTimeString();
@@ -1425,6 +1441,7 @@ function loadState(){
     state.portLoaded=!!j.portLoaded;
     state.pendingPortfolio=!!j.pendingPortfolio;
     state.valueLog=j.valueLog||{};
+    state.targets=j.targets||{};
   }catch(e){}
 }
 
@@ -2207,7 +2224,7 @@ function renderPortfolio(){
     totEl.innerHTML=`<h2>💼 Portfolio</h2><div class="loading">No holdings yet.<br>
       <button class="btn gold" style="margin:8px 0" onclick="forceLoadPortfolio()">🔐 Load my 38 holdings (passcode)</button><br>
       …or go to the Dashboard, click one of your stocks, and enter <b>Shares</b> + <b>Avg cost</b> in "Your holding" — this page then builds itself automatically.</div>`;
-    for(const id of ['portAlloc','portDivs','portHist','portValueChart','portCorr']) document.getElementById(id).style.display='none';
+    for(const id of ['portAlloc','portDivs','portHist','portValueChart','rebalCard','portCorr']) document.getElementById(id).style.display='none';
     return;
   }
   const missing=rows.filter(r=>r.missingFx);
@@ -2253,6 +2270,7 @@ function renderPortfolio(){
   renderDivCal(ok);
   renderPortHist(ok);
   renderValueLog();
+  renderRebal(ok, val);
   renderCorr();
 }
 
@@ -2540,15 +2558,75 @@ function renderDivCal(ok){
     if(nextTs < Date.now()-30*86400000 || nextTs > Date.now()+220*86400000) continue;
     const freq = med<40*86400?'monthly':med<115*86400?'quarterly':med<240*86400?'semi-annual':'annual';
     const amt=convert(last.a*r.h.shares, r.d.currency);
-    items.push({t:r.t, nextTs, freq, perShare:last.a, cur:r.d.currency, amt});
+    items.push({t:r.t, nextTs, freq, perShare:last.a, cur:r.d.currency, amt, medMs:med*1000});
   }
   if(!items.length){ el.style.display='none'; return; }
   el.style.display='block';
   items.sort((a,b)=>a.nextTs-b.nextTs);
+  /* 12-month income projection: repeat each payment at its own rhythm, bucket by month */
+  const months=Array.from({length:12},(_,k)=>{ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+k); return d; });
+  const buckets=new Array(12).fill(0);
+  const horizon=+new Date(months[0].getFullYear(), months[0].getMonth()+12, 1);
+  for(const it of items){
+    if(it.amt==null||!it.medMs) continue;
+    for(let ts=it.nextTs; ts<horizon; ts+=it.medMs){
+      const dd=new Date(ts);
+      const k=(dd.getFullYear()-months[0].getFullYear())*12 + (dd.getMonth()-months[0].getMonth());
+      if(k>=0&&k<12) buckets[k]+=it.amt;
+    }
+  }
+  const yrTotal=buckets.reduce((a,b)=>a+b,0);
+  let barsHtml='';
+  if(yrTotal>0){
+    const mx=Math.max(...buckets)||1, bw=560/12, cs=csym(state.baseCur);
+    barsHtml=`<div style="font-size:11px;color:var(--dim);margin:14px 0 4px;text-transform:uppercase;letter-spacing:1px">Projected income by month <span style="color:var(--gold);text-transform:none;letter-spacing:0">≈ ${cs}${fmt(yrTotal)} /yr</span></div>
+    <svg viewBox="0 0 560 96" style="width:100%;height:auto;display:block">
+      ${buckets.map((v,k)=>{ const bh=v/mx*62; const x=k*bw;
+        return `<rect x="${(x+4).toFixed(1)}" y="${(78-bh).toFixed(1)}" width="${(bw-8).toFixed(1)}" height="${Math.max(1,bh).toFixed(1)}" rx="2" fill="var(--gold)" opacity="${v>0?0.85:0.15}"><title>${months[k].toLocaleDateString(undefined,{month:'long',year:'numeric'})}: ≈${cs}${fmt(v)}</title></rect>
+        <text x="${(x+bw/2).toFixed(1)}" y="92" text-anchor="middle" fill="var(--dim)" font-size="9" font-family="IBM Plex Mono">${months[k].toLocaleDateString(undefined,{month:'short'})[0]}</text>`; }).join('')}
+    </svg>`;
+  }
   el.innerHTML=`<h2>📅 Dividend calendar <span style="font-weight:400;text-transform:none;letter-spacing:0">— estimated from each fund's payment rhythm</span></h2>
   <table><thead><tr><th>Ticker</th><th>Pays</th><th>≈ Next payment</th><th>Last per share</th><th>Your est. amount</th></tr></thead><tbody>
   ${items.map(it=>`<tr><td class="sym">${it.t}</td><td>${it.freq}</td><td>${new Date(it.nextTs).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})}</td><td>${csym(it.cur)}${fmt(it.perShare,4)}</td><td style="color:var(--gold)">${it.amt!=null?csym(state.baseCur)+fmt(it.amt):'—'}</td></tr>`).join('')}</tbody></table>
+  ${barsHtml}
   <div style="font-size:11px;color:var(--dim);margin-top:8px;line-height:1.6">Estimates only: next date = last payment + the fund's typical gap; amount = last payment × your shares. Companies can cut, raise or skip dividends without warning.</div>`;
+}
+
+/* ⚖️ rebalance helper — set target weights, see the share deltas that restore them */
+function renderRebal(ok, val){
+  const el=document.getElementById('rebalCard'); if(!el) return;
+  if(!ok || ok.length<2 || !(val>0)){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='block';
+  state.targets=state.targets||{};
+  const rows=ok.map(r=>{
+    const w=r.val/val*100;
+    const tgt=state.targets[r.t]!=null?state.targets[r.t]:null;
+    const drift=tgt!=null?w-tgt:null;
+    const px=convert(r.d.price, r.d.currency);
+    const dSh=(tgt!=null&&px>0)?((tgt/100*val)-r.val)/px:null;
+    const act=dSh==null?'—':Math.abs(dSh)<0.01?'✓ on target':`${dSh>0?'buy':'sell'} ≈ ${fmt(Math.abs(dSh),2)} sh`;
+    return `<tr><td class="sym" data-label="Ticker">${r.t}</td>
+      <td data-label="Now">${fmt(w,1)}%</td>
+      <td data-label="Target"><input type="number" step="0.5" min="0" max="100" value="${tgt!=null?tgt:''}" placeholder="—" style="width:64px" onchange="setTarget('${r.t}',this.value)"></td>
+      <td data-label="Drift" class="${drift!=null&&Math.abs(drift)>2?'d':drift!=null?'u':''}">${drift!=null?sign(drift)+'%':'—'}</td>
+      <td data-label="Action" class="${dSh!=null&&Math.abs(dSh)>=0.01?(dSh>0?'u':'d'):''}">${act}</td></tr>`;
+  }).join('');
+  const totT=ok.reduce((a,r)=>a+(+state.targets[r.t]||0),0);
+  el.innerHTML=`<h2>⚖️ Rebalance helper <span style="font-weight:400;text-transform:none;letter-spacing:0">— set target weights, see what to trim or add</span></h2>
+  <table><thead><tr><th style="cursor:default">Ticker</th><th style="cursor:default">Now</th><th style="cursor:default">Target %</th><th style="cursor:default">Drift</th><th style="cursor:default">≈ Action</th></tr></thead><tbody>${rows}</tbody></table>
+  <div class="axn-disc">Targets total <b>${fmt(totT,1)}%</b>${Math.abs(totT-100)>0.5&&totT>0?' — aim for 100%':''} · drift beyond ±2% shows red ·
+  <button class="btn sm" onclick="setTargetsFromCurrent()">use current weights as targets</button><br>
+  Share counts are approximations from live prices — educational math, not advice.</div>`;
+}
+function setTarget(t,v){ state.targets=state.targets||{}; const n=parseFloat(v); if(isNaN(n)||n<0) delete state.targets[t]; else state.targets[t]=Math.min(100,n); saveState(); renderPortfolio(); }
+function setTargetsFromCurrent(){
+  const rows=heldRows().filter(r=>!r.missingFx);
+  const val=rows.reduce((a,r)=>a+r.val,0);
+  if(!(val>0)) return;
+  state.targets={};
+  for(const r of rows) state.targets[r.t]=+(r.val/val*100).toFixed(1);
+  saveState(); renderPortfolio();
 }
 
 function renderPortHist(ok){
@@ -3093,6 +3171,26 @@ function renderActions(){
     <div class="axn-disc">Ranked: alerts first, then weak charts you own, then strong charts you don't. These read <b>only the chart</b> — check the business, valuation and news before acting. Not financial advice.</div>`;
 }
 
+/* 🔔 alert center — every price alert on one card */
+function renderAlertCenter(){
+  const el=document.getElementById('alertsCard'); if(!el) return;
+  const rows=[];
+  for(const t of state.tickers){
+    const a=state.alerts[t]; if(!a||(!a.above&&!a.below)) continue;
+    const d=state.data[t], px=d?d.price:null;
+    const hit=alertHit(t);
+    const dist=lvl=>(px&&lvl)?sign((lvl/px-1)*100)+'%':'—';
+    rows.push(`<div class="axn"><span class="chip ${hit?'bear':'mid'}">${hit?'🔔 HIT':'WAIT'}</span>
+      <div class="axn-b"><b>${t}</b> — now ${d?csym(d.currency)+fmt(px):'—'}${a.above?` · sell-zone above <b>${fmt(a.above)}</b> (${dist(a.above)} away)`:''}${a.below?` · buy-zone below <b>${fmt(a.below)}</b> (${dist(a.below)} away)`:''}</div>
+      <button class="btn sm" onclick="switchTab('${isHeld(t)?'held':'watch'}');select('${t}')">Open</button>
+      <button class="btn sm" title="remove this alert" onclick="delete state.alerts['${t}'];saveState();renderAll()">✕</button></div>`);
+  }
+  if(!rows.length){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='';
+  el.innerHTML=`<h2>🔔 Alert center <span style="font-weight:400;text-transform:none;letter-spacing:0">— all your price alerts in one place</span></h2>${rows.join('')}
+  <div class="axn-disc">Set alerts in any stock's Details panel. "HIT" alerts also ring the desktop 🔔 when Notify is on.</div>`;
+}
+
 /* 🔄 market-cycle overview — every tracked stock grouped by its Weinstein stage */
 function renderCycle(){
   const el=document.getElementById('cycleCard'); if(!el) return;
@@ -3113,7 +3211,7 @@ function renderCycle(){
   <div class="axn-disc">Stage 2 uptrends are the trend-follower's home; Stage 4 downtrends are where the big losses happen. Chart-based only — not financial advice.</div>`;
 }
 
-function renderAll(){ renderTape(); renderSnapshot(); renderSummary(); renderActions(); renderCycle(); renderWatchlist(); renderDetail(); renderReco(); }
+function renderAll(){ renderTape(); renderSnapshot(); renderSummary(); renderActions(); renderCycle(); renderAlertCenter(); renderWatchlist(); renderDetail(); renderReco(); }
 
 function toggleAuto(){
   const on=document.getElementById('auto').checked;
@@ -3290,6 +3388,32 @@ document.addEventListener('visibilitychange',()=>{
 /* secondary cards start folded on phones (tap the title to open) */
 document.querySelectorAll('.card.fold>h2').forEach(h=>h.addEventListener('click',()=>h.parentElement.classList.toggle('collapsed')));
 if(isMobile()) document.querySelectorAll('.card.fold').forEach(c=>c.classList.add('collapsed'));
+
+/* 📰 merged news feed for your biggest holdings — fetched only when the card is opened */
+let feedLoaded=false;
+async function loadFeed(){
+  if(feedLoaded) return;
+  feedLoaded=true;
+  const held=state.tickers.filter(isHeld).map(t=>({t,v:heldVal(t)||0})).sort((a,b)=>b.v-a.v).slice(0,6).map(x=>x.t);
+  const el=document.getElementById('feed');
+  if(!held.length){ el.innerHTML='<div class="loading">No holdings yet — this feed follows the stocks you own.</div>'; feedLoaded=false; return; }
+  el.innerHTML=`<div class="loading">Loading headlines for ${held.join(', ')}…</div>`;
+  await pool(held, 2, async t=>{ await loadNews(t); renderFeed(held); });
+  renderFeed(held);
+}
+function renderFeed(held){
+  const el=document.getElementById('feed'); if(!el) return;
+  const items=[];
+  for(const t of held){ const n=state.news[t]; if(n&&n.items) for(const it of n.items) items.push({...it, t}); }
+  items.sort((a,b)=>(b.pub||0)-(a.pub||0));
+  if(!items.length){ el.innerHTML='<div class="loading">No headlines came back — the free relays may be busy. Close and reopen this card to retry.</div>'; feedLoaded=false; return; }
+  const seen=new Set();
+  el.innerHTML=items.filter(it=>!seen.has(it.title)&&seen.add(it.title)).slice(0,14)
+    .map(it=>`<div class="feed-i"><span class="chip mini">${it.t}</span> <a href="${it.link}" target="_blank" rel="noopener">${esc(it.title)}</a><span class="feed-age">${newsAge(it.pub)}${it.src?' · '+esc(it.src):''}</span></div>`).join('');
+}
+document.querySelector('#feedCard>h2').addEventListener('click',()=>{
+  if(!document.getElementById('feedCard').classList.contains('collapsed')) loadFeed();
+});
 </script>
 </body>
 </html>
