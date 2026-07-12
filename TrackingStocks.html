@@ -190,6 +190,7 @@ tbody tr.sel{background:var(--surface2);box-shadow:inset 3px 0 0 var(--gold)}
 .wlsearch{width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 12px;font-size:13px;font-family:var(--ui);margin-bottom:10px}
 .wlsearch:focus{outline:none;border-color:var(--gold)}
 .wlsearch::placeholder{color:var(--dim)}
+body.simple .rd-grid{display:none}   /* simple view: quick-look keeps chart+cycle+verdicts only */
 /* inline expandable quick-look shown under a watchlist row (tap the ▸ caret) */
 .rowtog{display:inline-block;width:15px;color:var(--dim);cursor:pointer;transition:transform .15s ease;user-select:none}
 .rowtog:hover{color:var(--gold)}
@@ -424,7 +425,10 @@ textarea{width:100%;min-height:70px;margin-top:8px;resize:vertical}
 
   <div class="card">
     <h2>Watchlist <span style="font-weight:400;text-transform:none;letter-spacing:0">— click headers to sort, click a row for details</span></h2>
-    <input id="wlsearch" class="wlsearch" type="search" placeholder="🔍 Filter by ticker or name…" oninput="setSearch(this.value)" autocomplete="off">
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      <input id="wlsearch" class="wlsearch" type="search" placeholder="🔍 Filter by ticker or name…" oninput="setSearch(this.value)" autocomplete="off" style="flex:1">
+      <button class="btn sm" id="vmode" onclick="toggleViewMode()" title="Simple hides the technical columns — just price, day move and one verdict" style="margin-top:1px;white-space:nowrap"></button>
+    </div>
     <div class="gfilter" id="gfilter"></div>
     <div id="wl"><div class="loading">Starting up…</div></div>
   </div>
@@ -1402,7 +1406,8 @@ let state = {
   lastVerdicts:{}, briefDismissed:'', mkt:{}, fx:{},
   portLoaded:false, pendingPortfolio:false, ideas:{at:0, list:null, loading:false},
   valueLog:{},  /* real account value, one point per visit-day: 'YYYY-MM-DD' -> {v, cur} */
-  targets:{}    /* rebalance helper: ticker -> target weight % */
+  targets:{},   /* rebalance helper: ticker -> target weight % */
+  viewMode:'pro' /* 'pro' shows all columns/indicators; 'simple' = price + verdict only */
 };
 
 function saveState(){
@@ -1413,7 +1418,7 @@ function saveState(){
       sortKey:state.sortKey, sortDir:state.sortDir, tab:state.tab, groupFilter:state.groupFilter,
       baseCur:state.baseCur, riskPct:state.riskPct, accountSize:state.accountSize,
       notify:state.notify, lastVerdicts:state.lastVerdicts, briefDismissed:state.briefDismissed,
-      portLoaded:state.portLoaded, pendingPortfolio:state.pendingPortfolio, valueLog:state.valueLog, targets:state.targets
+      portLoaded:state.portLoaded, pendingPortfolio:state.pendingPortfolio, valueLog:state.valueLog, targets:state.targets, viewMode:state.viewMode
     }));
     const b=document.getElementById('savebadge');
     if(b) b.textContent='💾 saved '+new Date().toLocaleTimeString();
@@ -1442,6 +1447,7 @@ function loadState(){
     state.pendingPortfolio=!!j.pendingPortfolio;
     state.valueLog=j.valueLog||{};
     state.targets=j.targets||{};
+    if(j.viewMode==='simple'||j.viewMode==='pro') state.viewMode=j.viewMode;
   }catch(e){}
 }
 
@@ -1645,6 +1651,17 @@ function heldPlPct(t){ const h=state.holdings[t], d=state.data[t]; if(!h||!d||!h
 
 let wlSearch='';
 function setSearch(q){ wlSearch=(q||'').trim().toLowerCase(); renderWatchlist(); }
+
+/* ✨ Simple view — hides technical columns for a calm price+verdict list */
+function toggleViewMode(){
+  state.viewMode = state.viewMode==='simple' ? 'pro' : 'simple';
+  saveState(); applyViewMode(); renderWatchlist();
+}
+function applyViewMode(){
+  document.body.classList.toggle('simple', state.viewMode==='simple');
+  const b=document.getElementById('vmode');
+  if(b) b.textContent = state.viewMode==='simple' ? '👓 show all columns' : '✨ Simple view';
+}
 function sortedTickers(){
   const wantHeld = state.tab==='held';
   let arr=state.tickers.filter(t=>isHeld(t)===wantHeld);
@@ -1750,6 +1767,16 @@ function renderWatchlist(){
     const hit=alertHit(t);
     const staleMark = d.stale ? ` <span class="stale" title="couldn't update just now — showing saved data from ${new Date(d.fetchedAt||d.histAt||0).toLocaleString()}. It will retry automatically.">⏱</span>` : '';
     const isOpen=expandedRows.has(t);
+    if(state.viewMode==='simple'){
+      const rv=rc.lt.v;
+      rows+=`<tr class="${state.sel===t?'sel':''}" onclick="select('${t}')">
+      <td class="sym"><span class="rowtog ${isOpen?'open':''}" onclick="event.stopPropagation();toggleRow('${t}')" title="show / hide quick details">▸</span> ${t}${staleMark}${hit?` <span class="bell ${hit==='above'?'u':'d'}" title="price alert triggered">🔔</span>`:''}</td>
+      <td data-label="Price">${csym(d.currency)}${fmt(d.price)}</td>
+      <td data-label="Day %" class="${cls(d.chgPct)}">${sign(d.chgPct)}%</td>
+      <td data-label="Verdict"><span class="chip ${rv.chip}" title="long-term (months) reading — tap ▸ or the row for the why">${rv.word}</span></td>
+      <td class="act"><button class="btn sm" onclick="event.stopPropagation();removeTicker('${t}')">✕</button></td></tr>${isOpen?`<tr class="rowdetail"><td colspan="99">${rowDetailHTML(t,d)}</td></tr>`:''}`;
+      continue;
+    }
     rows+=`<tr class="${state.sel===t?'sel':''}" onclick="select('${t}')">
       <td class="sym"><span class="rowtog ${isOpen?'open':''}" onclick="event.stopPropagation();toggleRow('${t}')" title="show / hide quick details">▸</span> ${t}${d.manual?' <span style="color:var(--dim);font-size:10px">(manual)</span>':''}${staleMark}${hit?` <span class="bell ${hit==='above'?'u':'d'}" title="price alert triggered">🔔</span>`:''}</td>
       <td data-label="Price">${csym(d.currency)}${fmt(d.price)}</td>
@@ -1766,9 +1793,11 @@ function renderWatchlist(){
       <td data-label="Signals" style="white-space:nowrap">${miniChips(d)}</td>
       <td class="act"><button class="btn sm" onclick="event.stopPropagation();removeTicker('${t}')">✕</button></td></tr>${isOpen?`<tr class="rowdetail"><td colspan="99">${rowDetailHTML(t,d)}</td></tr>`:''}`;
   }
-  const head=(heldMode?COLS_HELD:COLS).map(c=>{
+  const simpleMode = state.viewMode==='simple';
+  const cols = simpleMode ? [['sym','Ticker'],['price','Price'],['chgPct','Day %'],['ltq','Verdict']] : (heldMode?COLS_HELD:COLS);
+  const head=cols.map(c=>{
     const h=`<th onclick="setSort('${c[0]}')">${c[1]}${state.sortKey===c[0]?(state.sortDir<0?' ↓':' ↑'):''}</th>`;
-    return c[0]==='chgPct' ? h+`<th style="cursor:default" title="last 30 days at a glance">30d</th>` : h;
+    return (!simpleMode && c[0]==='chgPct') ? h+`<th style="cursor:default" title="last 30 days at a glance">30d</th>` : h;
   }).join('');
   if(!rows){
     rows = heldMode
@@ -3279,7 +3308,19 @@ loadCache();
 /* first run: automatically import the real portfolio from the 11 June 2026 report */
 if(!state.portLoaded) loadMyPortfolio();
 document.getElementById('notif').checked=state.notify;
-renderDirectory();
+applyViewMode();
+/* the Quick-add directory is heavy — render it only when its card scrolls into view */
+(()=>{
+  let done=false;
+  const run=()=>{ if(!done){ done=true; renderDirectory(); } };
+  window.__lazyDir=run;   /* quickAdd/addTicker re-render through renderDirectory directly */
+  const card=document.getElementById('dir') && document.getElementById('dir').closest('.card');
+  if(card && 'IntersectionObserver' in window){
+    const io=new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)){ io.disconnect(); run(); } },{rootMargin:'400px'});
+    io.observe(card);
+    setTimeout(run, 2500);   /* idle fallback — still off the first-paint critical path */
+  } else run();
+})();
 renderNews();
 renderAll();
 renderBrief();
