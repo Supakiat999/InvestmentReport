@@ -269,10 +269,65 @@ const RULE2 = '━━━━━━━━━━━━━';
 const fmtN = (n, dp = 2) => n == null || isNaN(n) ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
 const sgnN = (n, dp = 2) => (n >= 0 ? '+' : '') + fmtN(n, dp);
 
+/* long-horizon verdict over up to `years` of history: pace + trend persistence + drawdown + stage */
+function longVerdict(c, years) {
+  const w = c.slice(-Math.round(years * 252));
+  const yrs = w.length / 252;
+  if (yrs < years * 0.6) return null;   /* need ≥60% of the window to judge it */
+  const cagr = (Math.pow(w[w.length - 1] / w[0], 1 / yrs) - 1) * 100;
+  const ma = new Array(c.length).fill(null);
+  let acc = 0;
+  for (let i = 0; i < c.length; i++) { acc += c[i]; if (i >= 200) acc -= c[i - 200]; if (i >= 199) ma[i] = acc / 200; }
+  let above = 0, cnt = 0;
+  for (let i = Math.max(c.length - w.length, 199); i < c.length; i++) { cnt++; if (c[i] > ma[i]) above++; }
+  const persist = cnt ? above / cnt * 100 : null;   /* % of days spent in an uptrend */
+  const offHi = (w[w.length - 1] / Math.max(...w) - 1) * 100;
+  const st = stageOf(c);
+  let s = 50;
+  s += cagr > 15 ? 15 : cagr > 8 ? 10 : cagr > 0 ? 4 : cagr > -5 ? -10 : -15;
+  if (persist != null) s += persist > 70 ? 10 : persist > 50 ? 4 : persist < 30 ? -8 : 0;
+  s += offHi > -15 ? 4 : offHi < -40 ? -8 : 0;
+  if (st) s += st.n === 2 ? 8 : st.n === 4 ? -8 : 0;
+  const score = clamp(s);
+  const word = x => x >= 68 ? 'BUY' : x >= 56 ? 'LEAN BUY' : x > 44 ? 'HOLD' : x >= 33 ? 'REDUCE' : 'SELL';
+  return { score, word: word(score), cagr, yrs };
+}
+
+/* one plain-English buy/sell line per signal: '+' helps the buy case, '−' hurts it, '·' neutral */
+function whyLines(v, mh, r1y) {
+  const L = [];
+  if (v.rsi != null) L.push(v.rsi > 70 ? `− RSI ${Math.round(v.rsi)}: overbought — chasing here often gets pulled back`
+    : v.rsi >= 55 ? `+ RSI ${Math.round(v.rsi)}: buyers in control, not overheated`
+    : v.rsi >= 45 ? `· RSI ${Math.round(v.rsi)}: neutral — neither side has an edge`
+    : v.rsi >= 30 ? `− RSI ${Math.round(v.rsi)}: sellers dominate right now`
+    : `+ RSI ${Math.round(v.rsi)}: oversold — bounce odds improve (risky)`);
+  if (v.k != null) L.push(v.k > 80 ? `− Stochastic ${Math.round(v.k)}: short-term overbought — pullback risk`
+    : v.k < 20 ? `+ Stochastic ${Math.round(v.k)}: washed out — bounce setup`
+    : `· Stochastic ${Math.round(v.k)}: mid-range — no signal`);
+  if (mh != null) L.push(mh > 0 ? `+ MACD rising: upward momentum building` : `− MACD falling: momentum fading`);
+  if (v.pb != null) L.push(v.pb > 1 ? `− Bollinger: above the upper band — stretched, snap-back risk`
+    : v.pb >= 0.8 ? `− Bollinger ${Math.round(v.pb * 100)}%: hugging the upper band — running hot`
+    : v.pb < 0 ? `+ Bollinger: below the lower band — washed out`
+    : v.pb <= 0.2 ? `+ Bollinger ${Math.round(v.pb * 100)}%: near the lower band — cheap vs its own range`
+    : `· Bollinger ${Math.round(v.pb * 100)}%: mid-band — no edge`);
+  L.push(v.cross ? (v.cross.type === 'golden' ? `+ Golden cross ${v.cross.daysAgo}d ago: the long trend turned up`
+    : `− Death cross ${v.cross.daysAgo}d ago: the long trend turned down`)
+    : `· No fresh 50/200 cross: long trend unchanged lately`);
+  if (v.pos != null) L.push(v.pos > 85 ? `+ 52w ${Math.round(v.pos)}%: near the high — no trapped sellers overhead`
+    : v.pos >= 50 ? `+ 52w ${Math.round(v.pos)}%: upper half of its yearly range`
+    : v.pos >= 15 ? `− 52w ${Math.round(v.pos)}%: lower half — trapped sellers overhead`
+    : `− 52w ${Math.round(v.pos)}%: near the low — falling-knife zone`);
+  if (r1y != null) L.push(r1y > 15 ? `+ 1Y ${sgnN(r1y, 0)}%: winners tend to keep winning`
+    : r1y > 0 ? `+ 1Y ${sgnN(r1y, 0)}%: mildly positive year — small tailwind`
+    : r1y > -15 ? `− 1Y ${sgnN(r1y, 0)}%: losing year — laggards tend to keep lagging`
+    : `− 1Y ${sgnN(r1y, 0)}%: heavy losses — understand what broke before buying`);
+  return L.map(x => ' ' + x);
+}
+
 /* "NVDA" / "PTT.BK" → one-stock analysis with cycle stage, indicators, levels + deep link */
 export async function stockText(symRaw, cfg) {
   const sym = String(symRaw || '').trim().toUpperCase();
-  const D = await sparkFetch([sym], '2y', 8);   /* 2y so the 50/200 cross has history */
+  const D = await sparkFetch([sym], '10y', 8);   /* 10y: enough history for the 5y/10y verdicts */
   const d = D[sym];
   if (!d || d.closes.length < 30)
     return `❓ I don't know a stock called "${sym}".\nIf you meant a stock, send its Yahoo symbol — Thai stocks need .BK (PTT.BK), US stocks are plain (NVDA).\nOr just tap a button below 👇`;
@@ -283,9 +338,8 @@ export async function stockText(symRaw, cfg) {
   const r1m = ret(c, 21), r1y = ret(c, 252) ?? ret(c, c.length - 1);
   const mh = macdHist(c);
   const lv = levelsOf(c);
-  const rsiWord = v.rsi == null ? '' : v.rsi > 70 ? ' (overbought)' : v.rsi < 30 ? ' (oversold)' : '';
-  const kWord = v.k == null ? '' : v.k > 80 ? ' (overbought)' : v.k < 20 ? ' (oversold)' : '';
-  const pbWord = v.pb == null ? '—' : v.pb > 1 ? 'above upper band (stretched)' : v.pb < 0 ? 'below lower band (washed out)' : `${fmtN(v.pb * 100, 0)}% of band`;
+  const v5 = longVerdict(c, 5), v10 = longVerdict(c, 10);
+  const haveYrs = c.length / 252;
   const L = [
     `📊 ${sym}`,
     RULE2,
@@ -293,16 +347,15 @@ export async function stockText(symRaw, cfg) {
     `📈 1M ${r1m != null ? sgnN(r1m, 1) : '—'}% · 1Y ${r1y != null ? sgnN(r1y, 1) : '—'}%`
   ];
   if (v.stage) L.push('', `🔄 Cycle: Stage ${v.stage.n} ${v.stage.emoji} ${v.stage.name}`, `   ${v.stage.why}`);
-  L.push('', '🔎 Indicators',
-    ` • RSI ${v.rsi != null ? fmtN(v.rsi, 0) : '—'}${rsiWord} · Stoch ${v.k != null ? fmtN(v.k, 0) : '—'}${kWord}`,
-    ` • MACD ${mh == null ? '—' : mh > 0 ? '▲ rising' : '▼ falling'} · Bollinger ${pbWord}`,
-    ` • 52w range: ${fmtN(v.pos, 0)}%${v.cross ? ` · ${v.cross.type === 'golden' ? '✨ golden' : '☠️ death'} cross ${v.cross.daysAgo}d ago` : ''}`);
+  L.push('', '🧠 Signals — why buy (+) or sell (−)', ...whyLines(v, mh, r1y));
   if (lv) L.push('', '📏 Levels',
     ` • support ~${fmtN(lv.sup)} · resistance ~${fmtN(lv.res)}`,
     ` • trail stop ~${fmtN(lv.trail)} (exit guide if it closes below)`);
   L.push('',
     `📅 Weeks: ${v.stWord} ${v.st}/100`,
-    `🏛 Months+: ${v.ltWord} ${v.lt}/100`);
+    `🏛 Months+: ${v.ltWord} ${v.lt}/100`,
+    v5 ? `⏳ 5 years: ${v5.word} ${v5.score}/100 · pace ${sgnN(v5.cagr, 1)}%/yr` : `⏳ 5 years: — (only ${fmtN(haveYrs, 1)}y of history)`,
+    v10 ? `🕰 10 years: ${v10.word} ${v10.score}/100 · pace ${sgnN(v10.cagr, 1)}%/yr` : `🕰 10 years: — (only ${fmtN(haveYrs, 1)}y of history)`);
   const h = cfg && cfg.holdings && cfg.holdings[sym];
   if (h && h.shares > 0) {
     const pl = h.cost > 0 ? (px / h.cost - 1) * 100 : null;

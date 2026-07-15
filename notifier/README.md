@@ -19,8 +19,12 @@ digest.mjs ── shared engine ────────────────
                         🟡 Base · 🟢 Uptrend · 🟠 Topping · 🔴 Downtrend
   moodOf(mkt)           fear/greed 0-100 from SPY/VIX/TLT/HYG
   buildDigest(cfg)      the full sectioned report (🎯 Do now → 🏆/💔 → ⚠️ → 💡)
-  stockText(sym, cfg)   single-ticker reply: cycle stage, indicators, support/
-                        resistance + trail stop, verdicts, ownership, #t= link
+  stockText(sym, cfg)   single-ticker reply (fetches 10y): cycle stage, a
+                        "🧠 Signals" section explaining every indicator with a
+                        +/−/· plain-English buy-or-sell reason (whyLines),
+                        support/resistance + trail stop, Weeks/Months verdicts
+                        PLUS ⏳5-year & 🕰10-year verdicts (longVerdict: pace,
+                        %days in uptrend, off-high, stage), ownership, #t= link
   cycleText(cfg)        all holdings grouped by cycle stage
   rankText(cfg, worst)  holdings top-5 strongest / weakest (long-term score)
   compareText(a, b)     two symbols side by side
