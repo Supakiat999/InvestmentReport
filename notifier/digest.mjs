@@ -59,6 +59,10 @@ function macdHist(c) {
   return line[line.length - 1] - sig[sig.length - 1];
 }
 const clamp = x => Math.max(0, Math.min(100, x));
+/* scores are SIGNAL STRENGTH, not certainty: soften the extremes so "perfect 100" and
+   "absolute 0" can't happen (100→92, 0→8); the 20–80 middle is untouched so rankings
+   and the BUY/SELL word thresholds keep their meaning */
+const soften = x => Math.round(x > 80 ? 80 + (x - 80) * 0.6 : x < 20 ? 20 - (20 - x) * 0.6 : x);
 const ret = (c, n) => c.length > n ? (c[c.length - 1] / c[c.length - 1 - n] - 1) * 100 : null;
 
 /* Bollinger %B (20, 2σ): <0 below lower band (washed out), 0–1 inside, >1 above upper (stretched) */
@@ -129,7 +133,7 @@ export function verdicts(c) {
   if (cross) lt += cross.type === 'golden' ? 8 : -8;                                       /* fresh 50/200 cross */
   if (stage) lt += stage.n === 2 ? 6 : stage.n === 4 ? -6 : 0;                             /* cycle stage */
   const word = s => s >= 68 ? 'BUY' : s >= 56 ? 'LEAN BUY' : s > 44 ? 'HOLD' : s >= 33 ? 'REDUCE' : 'SELL';
-  st = clamp(st); lt = clamp(lt);
+  st = soften(clamp(st)); lt = soften(clamp(lt));
   return { st, lt, stWord: word(st), ltWord: word(lt), rsi, px, pb, k, cross, stage, pos };
 }
 
@@ -288,7 +292,7 @@ function longVerdict(c, years) {
   if (persist != null) s += persist > 70 ? 10 : persist > 50 ? 4 : persist < 30 ? -8 : 0;
   s += offHi > -15 ? 4 : offHi < -40 ? -8 : 0;
   if (st) s += st.n === 2 ? 8 : st.n === 4 ? -8 : 0;
-  const score = clamp(s);
+  const score = soften(clamp(s));
   const word = x => x >= 68 ? 'BUY' : x >= 56 ? 'LEAN BUY' : x > 44 ? 'HOLD' : x >= 33 ? 'REDUCE' : 'SELL';
   return { score, word: word(score), cagr, yrs };
 }
@@ -324,6 +328,28 @@ function whyLines(v, mh, r1y) {
   return L.map(x => ' ' + x);
 }
 
+/* 📌 the one-glance answer: stance for patient holders + entry nuance + signal tally */
+function bottomLine(v, lv, whys) {
+  const plus = whys.filter(w => w.trim().startsWith('+')).length;
+  const minus = whys.filter(w => w.trim().startsWith('−')).length;
+  const hot = (v.k != null && v.k > 80) || (v.pb != null && v.pb > 0.8) || (v.rsi != null && v.rsi > 70);
+  let s;
+  if (v.lt >= 68 && v.stage && v.stage.n === 2)
+    s = hot ? `Worth owning for months+ (uptrend intact) — but it's HOT short-term; a dip${lv ? ` toward ~${fmtN(lv.sup)}` : ''} is a kinder entry than chasing today.`
+            : `Worth owning for months+ — uptrend intact, momentum healthy, no obvious reason to wait.`;
+  else if (v.lt >= 68)
+    s = `Strong chart, but the cycle stage isn't a clean uptrend — buy smaller, keep the trail stop honest.`;
+  else if (v.lt >= 56)
+    s = `Lean yes for patient holders — the case is decent but incomplete; size small or wait for more confirmation.`;
+  else if (v.lt > 44)
+    s = `No rush either way — signals are mixed; let it prove itself${lv ? ` (watch ~${fmtN(lv.sup)} support)` : ''} before committing money.`;
+  else if (v.lt >= 33)
+    s = `Better to reduce or avoid for now — more signals argue against you than for you.`;
+  else
+    s = `Avoid new buying — this chart is broken until it repairs${v.stage && v.stage.n === 1 ? ' (a base is forming — the breakout is your signal)' : ''}.`;
+  return ['📌 Bottom line', ` ${s}`, ` Signals: ${plus} for · ${minus} against`];
+}
+
 /* "NVDA" / "PTT.BK" → one-stock analysis with cycle stage, indicators, levels + deep link */
 export async function stockText(symRaw, cfg) {
   const sym = String(symRaw || '').trim().toUpperCase();
@@ -340,28 +366,31 @@ export async function stockText(symRaw, cfg) {
   const lv = levelsOf(c);
   const v5 = longVerdict(c, 5), v10 = longVerdict(c, 10);
   const haveYrs = c.length / 252;
+  const whys = whyLines(v, mh, r1y);
   const L = [
     `📊 ${sym}`,
     RULE2,
     `💵 ${fmtN(px)} · today ${sgnN(day)}%`,
-    `📈 1M ${r1m != null ? sgnN(r1m, 1) : '—'}% · 1Y ${r1y != null ? sgnN(r1y, 1) : '—'}%`
+    `📈 1M ${r1m != null ? sgnN(r1m, 1) : '—'}% · 1Y ${r1y != null ? sgnN(r1y, 1) : '—'}%`,
+    '',
+    ...bottomLine(v, lv, whys)
   ];
   if (v.stage) L.push('', `🔄 Cycle: Stage ${v.stage.n} ${v.stage.emoji} ${v.stage.name}`, `   ${v.stage.why}`);
-  L.push('', '🧠 Signals — why buy (+) or sell (−)', ...whyLines(v, mh, r1y));
+  L.push('', '🧠 Signals — why buy (+) or sell (−)', ...whys);
   if (lv) L.push('', '📏 Levels',
     ` • support ~${fmtN(lv.sup)} · resistance ~${fmtN(lv.res)}`,
     ` • trail stop ~${fmtN(lv.trail)} (exit guide if it closes below)`);
-  L.push('',
-    `📅 Weeks: ${v.stWord} ${v.st}/100`,
-    `🏛 Months+: ${v.ltWord} ${v.lt}/100`,
-    v5 ? `⏳ 5 years: ${v5.word} ${v5.score}/100 · pace ${sgnN(v5.cagr, 1)}%/yr` : `⏳ 5 years: — (only ${fmtN(haveYrs, 1)}y of history)`,
-    v10 ? `🕰 10 years: ${v10.word} ${v10.score}/100 · pace ${sgnN(v10.cagr, 1)}%/yr` : `🕰 10 years: — (only ${fmtN(haveYrs, 1)}y of history)`);
+  L.push('', '🎚 Verdicts (strength 8–92, never certainty)',
+    ` 📅 Weeks: ${v.stWord} · ${v.st}`,
+    ` 🏛 Months+: ${v.ltWord} · ${v.lt}`,
+    v5 ? ` ⏳ 5 years: ${v5.word} · ${v5.score} · pace ${sgnN(v5.cagr, 1)}%/yr` : ` ⏳ 5 years: — (only ${fmtN(haveYrs, 1)}y of history)`,
+    v10 ? ` 🕰 10 years: ${v10.word} · ${v10.score} · pace ${sgnN(v10.cagr, 1)}%/yr` : ` 🕰 10 years: — (only ${fmtN(haveYrs, 1)}y of history)`);
   const h = cfg && cfg.holdings && cfg.holdings[sym];
   if (h && h.shares > 0) {
     const pl = h.cost > 0 ? (px / h.cost - 1) * 100 : null;
     L.push('', `💼 You own ${fmtN(h.shares, h.shares % 1 ? 2 : 0)} sh${pl != null ? ` · P/L ${sgnN(pl, 1)}%` : ''}`);
   }
-  L.push('', `Full analysis (chart · plan · why):`, `${SITE}#t=${encodeURIComponent(sym)}`, RULE2, 'chart signals only · not advice');
+  L.push('', `Full analysis (chart · plan · why):`, `${SITE}#t=${encodeURIComponent(sym)}`, RULE2, 'strength = how loudly the chart agrees — never certainty · not advice');
   return L.join('\n');
 }
 
@@ -452,12 +481,12 @@ export async function ideasText(cfg) {
   const syms = IDEAS.filter(s => !own.has(s));
   const I = await sparkFetch(syms, '1y', 8);
   const ranked = syms.map(s => I[s] && I[s].closes.length > 200 ? { s, v: verdicts(I[s].closes) } : null)
-    .filter(Boolean).sort((a, b) => (b.v.lt * 2 + b.v.st) - (a.v.lt * 2 + a.v.st)).slice(0, 8);
+    .filter(Boolean).sort((a, b) => (b.v.lt * 2 + b.v.st) - (a.v.lt * 2 + a.v.st)).slice(0, 12);
   if (!ranked.length) return '❓ Idea data unavailable right now — try again in a minute.';
   return [
     `💡 IDEAS — strongest charts you don't own`, RULE2,
-    ...ranked.map((x, i) => ` ${i + 1} ${x.s} — ${x.v.ltWord} ${x.v.lt}/100`),
-    '', 'Chart score only — research the business before buying.',
-    `Full 30-stock scanner:`, `${SITE}#ideas`
+    ...ranked.map((x, i) => ` ${String(i + 1).padStart(2)} ${x.s}${x.v.stage ? ` ${x.v.stage.emoji}S${x.v.stage.n}` : ''} — ${x.v.ltWord} · ${x.v.lt}`),
+    '', 'Send any ticker for its full card. Strength only —',
+    'research the business before buying. Full scanner:', `${SITE}#ideas`
   ].join('\n');
 }

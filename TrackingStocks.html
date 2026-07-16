@@ -719,7 +719,13 @@ function pearson(a,b){
   return (va&&vb) ? cov/Math.sqrt(va*vb) : null;
 }
 function dailyReturns(c,n){ const out=[]; const s=Math.max(1,c.length-n); for(let i=s;i<c.length;i++) out.push(c[i]/c[i-1]-1); return out; }
-function clamp01(x){ return Math.max(0,Math.min(100,x)); }
+/* scores are SIGNAL STRENGTH, not certainty: extremes are softened so a "perfect 100"
+   or "absolute 0" can't happen (100→92, 0→8); 20–80 is untouched so the BUY/SELL word
+   thresholds and all rankings keep their meaning */
+function clamp01(x){
+  x=Math.max(0,Math.min(100,x));
+  return Math.round(x>80 ? 80+(x-80)*0.6 : x<20 ? 20-(20-x)*0.6 : x);
+}
 
 /* ---------- parse a full chart payload into our data object ---------- */
 function parse(sym,res){
